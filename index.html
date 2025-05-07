@@ -45,7 +45,7 @@
     .masked.revealed {
       background-color: #ffcccc;
       color: black;
-      opacity: 0.5;
+      opacity: 1;
     }
     .red-marker {
       background-color: red;
@@ -72,6 +72,7 @@
   <div id="topButtons">
     <button id="toggleBtn" onclick="toggleAll()" style="display:none;">マーカー ON/OFF</button>
     <button id="markBtn" onclick="addRedMarker()" style="display:none;">赤マーカー</button>
+    <button id="autoMarkBtn" onclick="autoMark()" style="display:none;">自動マーカー</button> <!-- 自動マーカー ボタン -->
     <button onclick="exportToFile()">出力</button>
     <input type="file" accept=".txt,.html" onchange="importFromFile(event)">
     <input type="text" id="searchInput" placeholder="検索したい文字を入力" oninput="searchText()" />
@@ -87,7 +88,12 @@
       el.onclick = function () {
         this.classList.toggle("revealed");
         if (this.classList.contains("red-marker")) {
-          this.style.opacity = this.style.opacity === "1" ? "0.3" : "1";
+          // クリックでマスク解除した際に赤色の状態を再度適用
+          if (this.classList.contains("revealed")) {
+            this.style.opacity = "1";  // マスク解除後に元の赤色に戻す
+          } else {
+            this.style.opacity = "0.3";  // 薄くする場合
+          }
         }
       };
       el.oncontextmenu = function (e) {
@@ -138,6 +144,24 @@
         }
       });
       allVisible = !allVisible;
+    }
+
+    function autoMark() {
+      const editor = document.getElementById("editor");
+      const elements = editor.querySelectorAll('*');
+      
+      elements.forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (style.border && style.border !== 'none') {  // borderが設定されている要素を検出
+          const span = document.createElement("span");
+          span.className = "masked red-marker";
+          span.textContent = el.textContent;  // 要素のテキストを取得
+          applyEventsToMasked(span);
+
+          el.innerHTML = '';  // 元の要素を空にしてマスクされたテキストを挿入
+          el.appendChild(span);
+        }
+      });
     }
 
     function searchText() {
@@ -210,6 +234,7 @@
         document.getElementById("editor").style.display = "block";
         document.getElementById("toggleBtn").style.display = "inline-block";
         document.getElementById("markBtn").style.display = "inline-block";
+        document.getElementById("autoMarkBtn").style.display = "inline-block"; // 自動マーカーボタンを表示
         loadContent();
 
         // スマホなど小さい画面では編集制限
