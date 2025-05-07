@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>クラウドメモ帳</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      background-color: #f9f9f9;
+    }
+    #topButtons {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background-color: #ffffff;
+      padding: 1rem;
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-start;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+    #editor {
+      margin-top: 80px;
+      border: 1px solid #ccc;
+      padding: 1rem;
+      min-height: 300px;
+      background: white;
+    }
+    .masked {
+      background-color: red;
+      color: red;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 0 2px;
+      transition: all 0.3s ease;
+      opacity: 1;
+    }
+    .masked.revealed {
+      background-color: #ffcccc;
+      color: black;
+      opacity: 0.5;
+    }
+    .highlight {
+      background-color: yellow;
+      border-radius: 4px;
+      padding: 0 2px;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+    input[type="text"] {
+      padding: 0.5rem;
+      font-size: 1rem;
+      flex-grow: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="topButtons">
+    <button id="toggleBtn" onclick="toggleAll()">マーカー ON/OFF</button>
+    <input type="text" id="searchInput" placeholder="検索したい文字を入力" oninput="searchText()" />
+  </div>
+
+  <div id="editor" contenteditable="true"></div>
+
+  <script>
+    const apiKey = "$2a$10$u95HsdHNpypoHG4Pn6xwte9Qb0yBZfDqqP2nzU04zuGLESJPcNB.q";
+    const binId = "681b6c688960c979a5950803";
+    const apiUrl = `https://api.jsonbin.io/v3/b/${binId}`;
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Master-Key": apiKey
+    };
+
+    let allVisible = false;
+
+    function applyEventsToMasked(el) {
+      el.onclick = function () {
+        this.classList.toggle("revealed");
+      };
+      el.oncontextmenu = function (e) {
+        e.preventDefault();
+        const textNode = document.createTextNode(this.textContent);
+        this.replaceWith(textNode);
+      };
+    }
+
+    function maskSelection() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      const selectedText = range.toString();
+      if (!selectedText) return;
+
+      const span = document.createElement("span");
+      span.className = "masked";
+      span.textContent = selectedText;
+      applyEventsToMasked(span);
+
+      range.deleteContents();
+      range.insertNode(span);
+    }
+
+    function toggleAll() {
+      document.querySelectorAll(".masked").forEach(el => {
+        el.classList.toggle("revealed");
+      });
+      allVisible = !allVisible;
+    }
+
+    function searchText() {
+      const searchInput = document.getElementById("searchInput").value;
+      const editor = document.getElementById("editor");
+      const text = editor.innerHTML;
+      editor.innerHTML = text.replace(/<span class="highlight">(.*?)<\/span>/g, "$1");
+
+      if (searchInput === "") return;
+
+      const pattern = new RegExp(`【${searchInput}】`, "g");
+      let result;
+      let newHTML = text;
+      let matchFound = false;
+
+      while ((result = pattern.exec(text)) !== null) {
+        const keyword = result[0];
+        const highlighted = `<span class="highlight">${keyword}</span>`;
+        newHTML = newHTML.replace(keyword, highlighted);
+        matchFound = true;
+      }
+
+      editor.innerHTML = newHTML;
+
+      if (matchFound) {
+        const highlightedElement = document.querySelector(".highlight");
+        if (highlightedElement) {
+          highlightedElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+    }
+
+    async function saveToCloud() {
+      const content = document.getElementById("editor").innerHTML;
+      await fetch(apiUrl, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ record: { memo: content } })
+      });
+    }
+
+    async function loadFromCloud() {
+      const res = await fetch(apiUrl, { headers });
+      const data = await res.json();
+      document.getElementById("editor").innerHTML = data.record.memo;
+      document.querySelectorAll(".masked").forEach(applyEventsToMasked);
+    }
+
+    window.onload = async function () {
+      await loadFromCloud();
+      document.getElementById("editor").addEventListener("dblclick", function () {
+        const sel = window.getSelection();
+        if (sel.toString()) {
+          maskSelection();
+        }
+      });
+      setInterval(saveToCloud, 2000);
+    };
+  </script>
+</body>
+</html>
