@@ -1,0 +1,227 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>メモ帳</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      background-color: #f9f9f9;
+    }
+    #topButtons {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background-color: #ffffff;
+      padding: 1rem;
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-start;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+    #editor {
+      margin-top: 80px;
+      border: 1px solid #ccc;
+      padding: 1rem;
+      min-height: 300px;
+      background: white;
+      display: none;
+    }
+    .masked {
+      background-color: red;
+      color: red;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 0 2px;
+      transition: all 0.3s ease;
+      opacity: 1;
+    }
+    .masked.revealed {
+      background-color: #ffcccc;
+      color: black;
+      opacity: 0.5;
+    }
+    .red-marker {
+      background-color: red;
+      color: red;
+      opacity: 1;
+    }
+    .highlight {
+      background-color: yellow;
+      border-radius: 4px;
+      padding: 0 2px;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+    input[type="text"] {
+      padding: 0.5rem;
+      font-size: 1rem;
+      flex-grow: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="topButtons">
+    <button id="toggleBtn" onclick="toggleAll()" style="display:none;">マーカー ON/OFF</button>
+    <button id="markBtn" onclick="addRedMarker()" style="display:none;">赤マーカー</button>
+    <button onclick="exportToFile()">出力</button>
+    <input type="file" accept=".txt,.html" onchange="importFromFile(event)">
+    <input type="text" id="searchInput" placeholder="検索したい文字を入力" oninput="searchText()" />
+  </div>
+
+  <div id="editor" contenteditable="true"></div>
+
+  <script>
+    const correctPassword = "2410";
+    let allVisible = false;
+
+    function applyEventsToMasked(el) {
+      el.onclick = function () {
+        this.classList.toggle("revealed");
+        if (this.classList.contains("red-marker")) {
+          this.style.opacity = this.style.opacity === "1" ? "0.3" : "1";
+        }
+      };
+      el.oncontextmenu = function (e) {
+        e.preventDefault();
+        const textNode = document.createTextNode(this.textContent);
+        this.replaceWith(textNode);
+      };
+    }
+
+    function maskSelection() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      const selectedText = range.toString();
+      if (!selectedText) return;
+
+      const span = document.createElement("span");
+      span.className = "masked";
+      span.textContent = selectedText;
+      applyEventsToMasked(span);
+
+      range.deleteContents();
+      range.insertNode(span);
+    }
+
+    function addRedMarker() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      const selectedText = range.toString();
+      if (!selectedText) return;
+
+      const span = document.createElement("span");
+      span.className = "masked red-marker";
+      span.textContent = selectedText;
+      applyEventsToMasked(span);
+
+      range.deleteContents();
+      range.insertNode(span);
+    }
+
+    function toggleAll() {
+      document.querySelectorAll(".masked").forEach(el => {
+        if (allVisible) {
+          el.classList.remove("revealed");
+        } else {
+          el.classList.add("revealed");
+        }
+      });
+      allVisible = !allVisible;
+    }
+
+    function searchText() {
+      const searchInput = document.getElementById("searchInput").value;
+      const editor = document.getElementById("editor");
+      const text = editor.innerHTML;
+      editor.innerHTML = text.replace(/<span class="highlight">(.*?)<\/span>/g, "$1");
+
+      if (searchInput === "") return;
+
+      const pattern = new RegExp(`【${searchInput}】`, "g");
+      let result;
+      let newHTML = text;
+      let matchFound = false;
+
+      while ((result = pattern.exec(text)) !== null) {
+        const keyword = result[0];
+        const highlighted = `<span class="highlight">${keyword}</span>`;
+        newHTML = newHTML.replace(keyword, highlighted);
+        matchFound = true;
+      }
+
+      editor.innerHTML = newHTML;
+
+      if (matchFound) {
+        const highlightedElement = document.querySelector(".highlight");
+        if (highlightedElement) {
+          highlightedElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+    }
+
+    function loadContent() {
+      const saved = localStorage.getItem("maskedContent");
+      if (saved) {
+        document.getElementById("editor").innerHTML = saved;
+        document.querySelectorAll(".masked").forEach(el => applyEventsToMasked(el));
+      }
+
+      setInterval(() => {
+        const content = document.getElementById("editor").innerHTML;
+        localStorage.setItem("maskedContent", content);
+      }, 2000);
+    }
+
+    function exportToFile() {
+      const content = document.getElementById("editor").innerHTML;
+      const blob = new Blob([content], { type: "text/html" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "memo.html";
+      a.click();
+    }
+
+    function importFromFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const content = e.target.result;
+        document.getElementById("editor").innerHTML = content;
+        document.querySelectorAll(".masked").forEach(el => applyEventsToMasked(el));
+      };
+      reader.readAsText(file);
+    }
+
+    window.onload = function () {
+      const pass = prompt("パスワードを入力してください:");
+      if (pass === correctPassword) {
+        document.getElementById("editor").style.display = "block";
+        document.getElementById("toggleBtn").style.display = "inline-block";
+        document.getElementById("markBtn").style.display = "inline-block";
+        loadContent();
+
+        // スマホなど小さい画面では編集制限
+        if (window.innerWidth < 600) {
+          const editor = document.getElementById("editor");
+          editor.removeAttribute("contenteditable");
+          alert("この画面サイズでは編集できません。PCでご利用ください。");
+        }
+      } else {
+        alert("パスワードが違います。");
+      }
+    };
+  </script>
+</body>
+</html>
