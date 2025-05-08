@@ -23,6 +23,7 @@
       padding: 1rem;
       display: flex;
       gap: 1rem;
+      flex-wrap: wrap;
       justify-content: flex-start;
       align-items: center;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -108,24 +109,15 @@
       border: 1px solid #ccc;
       border-radius: 6px;
     }
-    @media (max-width: 768px) {
-      #toggleBtn,
-      #markBtn,
-      #mmToggleBtn,
-      #searchInput,
-      #topButtons button:not(:nth-child(5)),
-      #topButtons input[type="text"] {
-        display: none !important;
-      }
-    }
   </style>
 </head>
 <body>
   <div id="topButtons">
     <button onclick="document.execCommand('undo')">⟲ 元に戻す</button>
-    <button id="toggleBtn" onclick="toggleAll()" style="display:none;">マーカー ON/OFF</button>
-    <button id="markBtn" onclick="addRedMarker()" style="display:none;">赤マーカー</button>
+    <button id="toggleBtn" onclick="toggleAll()">マーカー ON/OFF</button>
+    <button id="markBtn" onclick="addRedMarker()">赤マーカー</button>
     <button id="mmToggleBtn" onclick="toggleMarkMode()">MM: OFF</button>
+    <button onclick="toggleReadOnly()">閲覧モード</button>
     <button onclick="exportToFile()">出力</button>
     <input type="file" accept=".txt,.html,.json" onchange="importFromFile(event)">
     <input type="text" id="searchInput" placeholder="検索したい文字を入力" oninput="searchText()" />
@@ -139,6 +131,7 @@
     let pages = {};
     let allVisible = false;
     let markMode = false;
+    let readOnly = false;
 
     function applyEventsToMasked(el) {
       el.onclick = function () {
@@ -177,6 +170,12 @@
     function toggleMarkMode() {
       markMode = !markMode;
       document.getElementById("mmToggleBtn").textContent = `MM: ${markMode ? "ON" : "OFF"}`;
+    }
+
+    function toggleReadOnly() {
+      readOnly = !readOnly;
+      document.getElementById("editor").setAttribute("contenteditable", !readOnly);
+      alert(readOnly ? "閲覧モードになりました" : "編集モードに戻りました");
     }
 
     function searchText() {
@@ -296,8 +295,6 @@
       const pass = prompt("パスワードを入力してください:");
       if (pass === correctPassword) {
         document.getElementById("editor").style.display = "block";
-        document.getElementById("toggleBtn").style.display = "inline-block";
-        document.getElementById("markBtn").style.display = "inline-block";
         const saved = localStorage.getItem("pages");
         if (saved) {
           pages = JSON.parse(saved);
