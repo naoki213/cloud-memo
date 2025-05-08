@@ -117,10 +117,6 @@
       #topButtons input[type="text"] {
         display: none !important;
       }
-      #editor[contenteditable="true"] {
-        pointer-events: none;
-        opacity: 0.6;
-      }
     }
   </style>
 </head>
@@ -145,7 +141,9 @@
     let markMode = false;
 
     function applyEventsToMasked(el) {
-      el.onclick = function () { this.classList.toggle("revealed"); };
+      el.onclick = function () {
+        this.classList.toggle("revealed");
+      };
       el.oncontextmenu = function (e) {
         e.preventDefault();
         const textNode = document.createTextNode(this.textContent);
