@@ -22,15 +22,15 @@
       background-color: #ffffff;
       padding: 1rem;
       display: flex;
-      gap: 1rem;
       flex-wrap: wrap;
+      gap: 1rem;
       justify-content: flex-start;
       align-items: center;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       z-index: 1000;
     }
     #pageTabs {
-      margin-top: 70px;
+      margin-top: 110px; /* 仮マージン：JSで上書きされます */
       display: flex;
       align-items: center;
       padding: 0.5rem 1rem;
@@ -64,7 +64,7 @@
     }
     #editor {
       margin: 1rem auto;
-      margin-top: 140px;
+      margin-top: 180px; /* 仮マージン：JSで上書きされます */
       width: 90%;
       max-width: 800px;
       border-radius: 10px;
@@ -132,6 +132,12 @@
     let allVisible = false;
     let markMode = false;
     let readOnly = false;
+
+    function adjustMargins() {
+      const topH = document.getElementById("topButtons").offsetHeight;
+      document.getElementById("pageTabs").style.marginTop = `${topH + 10}px`;
+      document.getElementById("editor").style.marginTop = `${topH + 80}px`;
+    }
 
     function applyEventsToMasked(el) {
       el.onclick = function () {
@@ -306,6 +312,8 @@
         }
         renderTabs();
         switchToPage(currentPageId);
+        adjustMargins();
+        window.addEventListener("resize", adjustMargins);
         document.getElementById("editor").addEventListener("input", saveCurrentPageContent);
         document.getElementById("editor").addEventListener("mouseup", () => {
           if (markMode && window.getSelection().toString()) {
