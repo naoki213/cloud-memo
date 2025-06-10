@@ -3,204 +3,130 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>memo2</title>
+  <title>memo2 穴埋め対応</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
-    .tabs { display: flex; background: #333; color: white; }
+    body { font-family: sans-serif; margin: 0; background: #f4f4f4; }
+    .tabs { display: flex; background: #333; color: white; position: sticky; top: 0; z-index: 1000; }
     .tab { padding: 10px 20px; cursor: pointer; }
     .tab.active { background: #555; }
     .content { display: none; padding: 20px; }
     .content.active { display: block; }
     textarea, input[type="text"] { width: 100%; padding: 10px; margin-top: 10px; }
+    textarea { resize: vertical; }
     button { margin-top: 10px; padding: 10px 20px; }
     .btn-group button { margin-right: 10px; }
-    .sub-tabs { display: flex; margin-top: 20px; }
-    .sub-tab { margin-right: 10px; cursor: pointer; color: blue; text-decoration: underline; }
-    .sub-tab.active { font-weight: bold; }
+    .score { font-weight: bold; margin-left: 10px; }
+    .score.red { color: red; }
+    .score.green { color: green; }
+    .edit-icon { cursor: pointer; margin-left: 10px; }
+    .edit-field { width: 100%; padding: 5px; margin-top: 5px; display: block; }
+    .input-blank { display: inline-block; width: 120px; margin: 0 5px; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <script>
-    const password = prompt("パスワードを入力してください：");
-    if (password !== "2410") {
-      document.body.innerHTML = '<h2>アクセスが拒否されました。</h2>';
-      throw new Error("パスワード不正");
-    }
-  </script>
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab(0)">演習（A）</div>
-    <div class="tab" onclick="switchTab(1)">入力（B）</div>
-    <div class="tab" onclick="switchTab(2)">確認（C）</div>
+<h1>memo2 穴埋め＋通常問題 統合版</h1>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(0)">演習（A）</div>
+  <div class="tab" onclick="switchTab(1)">入力（B）</div>
+  <div class="tab" onclick="switchTab(2)">確認（C）</div>
+  <div class="tab" onclick="switchTab(3)">グラフ（D）</div>
+</div>
+
+<div class="content active" id="exercise-tab">
+  <h2 id="exerciseQuestion">ここに問題が表示されます</h2>
+  <textarea id="exerciseAnswer" rows="3" onkeydown="checkEnter(event)" placeholder="ここに解答を入力"></textarea>
+  <button onclick="startSpeechRecognition('exerciseAnswer')">🎤音声入力（解答）</button>
+  <button onclick="checkCorrectAnswer()">正答確認</button>
+  <p id="correctAnswer"></p>
+  <div class="btn-group">
+    <button onclick="gradeAnswer('maru')">○</button>
+    <button onclick="gradeAnswer('sankaku')">△</button>
+    <button onclick="gradeAnswer('batsu')">×</button>
+  </div>
+  <button onclick="startExercise()">通常出題スタート</button>
+  <button onclick="startLowScoreExercise()">スコア-3以下だけ出題</button>
+  <br><br>
+  <select id="categorySelect"></select>
+  <button onclick="startExerciseByCategory()">このカテゴリで出題</button>
+  <hr>
+  <h2>穴埋め問題</h2>
+  <div id="fillQuestionDisplay"></div>
+  <div id="fillInputs"></div>
+  <p id="fillResult"></p>
+  <select id="fillCategorySelect"></select>
+  <button onclick="startFillExerciseByCategory()">このカテゴリで出題</button>
+</div>
+
+<div class="content" id="input-tab">
+  <h2>通常問題入力</h2>
+  <textarea id="newQuestion" placeholder="問題を入力"></textarea>
+  <button onclick="startSpeechRecognition('newQuestion')">🎤音声入力（問題）</button>
+  <textarea id="newAnswer" placeholder="解答を入力"></textarea>
+  <button onclick="startSpeechRecognition('newAnswer')">🎤音声入力（解答）</button>
+  <input type="text" id="newCategory" placeholder="カテゴリを入力">
+  <br>
+  <button onclick="saveQuestion()">保存</button>
+  <hr>
+  <h2>穴埋め問題入力</h2>
+  <div id="newFillQuestion" contenteditable="true" style="border:1px solid #ccc; padding:10px; min-height:100px; background:#fff;"></div>
+  <input type="text" id="newFillCategory" placeholder="カテゴリを入力（穴埋め）">
+  <button onclick="saveFillQuestion()">保存</button>
+</div>
+
+<div id="tabConfirm" class="content">
+  <h2>✅ 問題一覧・編集</h2>
+
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="switchConfirmTab('normal')">📝 通常問題</button>
+    <button class="sub-tab" onclick="switchConfirmTab('fill')">🧩 穴埋め問題</button>
   </div>
 
-  <div id="tabA" class="content active">
-    <button onclick="startExercise()">スタート</button>
-    <div id="exerciseQuestion"></div>
-    <input type="text" id="exerciseAnswer" placeholder="解答を入力" onkeypress="checkEnter(event)">
-    <div id="correctAnswer" style="margin-top:10px;"></div>
-    <div class="btn-group">
-      <button onclick="gradeAnswer('maru')">〇</button>
-      <button onclick="gradeAnswer('sankaku')">△</button>
-      <button onclick="gradeAnswer('batsu')">×</button>
+  <div id="normalListSection">
+    <input type="file" id="fileInput" />
+    <div style="margin: 10px 0;">
+      <button onclick="downloadQuestions()">通常問題を書き出す</button>
+      <button onclick="uploadQuestions()">通常問題を読み込む</button>
     </div>
+    <ul id="questionList"></ul>
   </div>
 
-  <div id="tabB" class="content">
-    <textarea id="newQuestion" placeholder="問題を入力"></textarea>
-    <button onclick="startSpeech('newQuestion')">🎤 音声入力（問題）</button>
-    <textarea id="newAnswer" placeholder="解答を入力"></textarea>
-    <button onclick="startSpeech('newAnswer')">🎤 音声入力（解答）</button>
-    <button onclick="saveQuestion()">保存</button>
+  <div id="fillListSection" style="display: none;">
+    <input type="file" id="fileInput" />
+    <div style="margin: 10px 0;">
+      <button onclick="downloadAllData()">全データを書き出す</button>
+      <button onclick="uploadAllData()">全データを読み込む</button>
+    </div>
+
+    <div style="margin: 10px 0;">
+      <label>📂 カテゴリで絞り込み:
+        <select id="fillCategoryFilter" onchange="renderFillList()"></select>
+      </label>
+    </div>
+
+    <div style="margin: 10px 0;">
+      <label>🔁 カテゴリ一括置換:
+        <input type="text" id="fillOldCategory" placeholder="変更前カテゴリ">
+        →
+        <input type="text" id="fillNewCategory" placeholder="変更後カテゴリ">
+        <button onclick="bulkUpdateFillCategory()">一括変更</button>
+      </label>
+    </div>
+
+    <div style="margin: 10px 0;">
+      <button onclick="confirmDeleteAllFillQuestions()">⚠️ 穴埋め問題をすべて削除</button>
+    </div>
+
+    <ul id="fillQuestionList"></ul>
   </div>
+</div>
 
-  <div id="tabC" class="content">
-    <div class="sub-tabs">
-      <div class="sub-tab active" onclick="switchSubTab(0)">確認</div>
-      <div class="sub-tab" onclick="switchSubTab(1)">アウトプット</div>
-      <div class="sub-tab" onclick="switchSubTab(2)">インポート</div>
-    </div>
-    <div id="subTab0" class="sub-content">
-      <h3>保存された問題一覧</h3>
-      <ul id="questionList"></ul>
-    </div>
-    <div id="subTab1" class="sub-content" style="display:none;">
-      <button onclick="downloadQuestions()">ファイルとして出力</button>
-    </div>
-    <div id="subTab2" class="sub-content" style="display:none;">
-      <input type="file" id="fileInput">
-      <button onclick="uploadQuestions()">読み込み</button>
-    </div>
-  </div>
+<div class="content" id="graph-tab">
+  <h2>カテゴリ別 正答率グラフ</h2>
+  <canvas id="scoreChart" width="400" height="200"></canvas>
+</div>
 
-  <script>
-    let questions = JSON.parse(localStorage.getItem('questions') || '[]');
-    let currentQueue = [];
-    let currentIndex = 0;
-
-    function switchTab(index) {
-      document.querySelectorAll('.tab').forEach((tab, i) => tab.classList.toggle('active', i === index));
-      document.querySelectorAll('.content').forEach((content, i) => content.classList.toggle('active', i === index));
-      if (index === 2) renderList();
-    }
-
-    function switchSubTab(index) {
-      document.querySelectorAll('.sub-tab').forEach((tab, i) => tab.classList.toggle('active', i === index));
-      document.querySelectorAll('.sub-content').forEach((content, i) => content.style.display = i === index ? 'block' : 'none');
-    }
-
-    function saveQuestion() {
-      const q = document.getElementById('newQuestion').value.trim();
-      const a = document.getElementById('newAnswer').value.trim();
-      if (q && a) {
-        questions.push({ question: q, answer: a, queue: 0, origin: true });
-        localStorage.setItem('questions', JSON.stringify(questions));
-        document.getElementById('newQuestion').value = '';
-        document.getElementById('newAnswer').value = '';
-      }
-    }
-
-    function renderList() {
-      const list = document.getElementById('questionList');
-      list.innerHTML = '';
-      questions.forEach((qa, i) => {
-        if (!qa.origin) return;
-        const li = document.createElement('li');
-        li.innerHTML = `Q${i + 1}: <input value="${qa.question}" onchange="editQuestion(${i}, 'question', this.value)"> ／ A: <input value="${qa.answer}" onchange="editQuestion(${i}, 'answer', this.value)">`;
-        list.appendChild(li);
-      });
-    }
-
-    function editQuestion(index, field, value) {
-      questions[index][field] = value;
-      localStorage.setItem('questions', JSON.stringify(questions));
-    }
-
-    function startExercise() {
-      if (questions.length === 0) return alert('問題がありません');
-      currentQueue = questions.map((q, i) => ({ ...q, index: i })).sort(() => Math.random() - 0.5);
-      currentIndex = 0;
-      nextQuestion();
-    }
-
-    function nextQuestion() {
-      if (currentIndex >= currentQueue.length) {
-        alert('全問終了');
-        return;
-      }
-      document.getElementById('exerciseQuestion').textContent = currentQueue[currentIndex].question;
-      document.getElementById('exerciseAnswer').value = '';
-      document.getElementById('correctAnswer').textContent = '';
-    }
-
-    function checkEnter(event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        document.getElementById('correctAnswer').textContent = '正解: ' + currentQueue[currentIndex].answer;
-      }
-    }
-
-    function gradeAnswer(grade) {
-      const q = currentQueue[currentIndex];
-      const newQ = { question: q.question, answer: q.answer, queue: 0, origin: false };
-      if (grade === 'batsu') questions.splice(q.index + 5, 0, newQ);
-      else if (grade === 'sankaku') questions.splice(q.index + 10, 0, newQ);
-      else questions.push(newQ);
-      localStorage.setItem('questions', JSON.stringify(questions));
-      currentIndex++;
-      nextQuestion();
-    }
-
-    function downloadQuestions() {
-      const original = questions.filter(q => q.origin);
-      const blob = new Blob([JSON.stringify(original, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'questions.json';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-
-    function uploadQuestions() {
-      const fileInput = document.getElementById('fileInput');
-      const file = fileInput.files[0];
-      if (!file) return alert('ファイルを選択してください');
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        try {
-          const data = JSON.parse(e.target.result);
-          if (!Array.isArray(data)) throw new Error();
-          questions = data.map(q => ({ ...q, origin: true }));
-          localStorage.setItem('questions', JSON.stringify(questions));
-          alert('インポート完了');
-          renderList();
-        } catch {
-          alert('不正なデータです');
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    function startSpeech(targetId) {
-      if (!('webkitSpeechRecognition' in window)) {
-        alert('このブラウザでは音声認識がサポートされていません');
-        return;
-      }
-      const recognition = new webkitSpeechRecognition();
-      recognition.lang = 'ja-JP';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.start();
-      recognition.onresult = function (event) {
-        const transcript = event.results[0][0].transcript;
-        const textarea = document.getElementById(targetId);
-        textarea.value += transcript;
-      };
-      recognition.onerror = function () {
-        alert('音声認識に失敗しました');
-      };
-    }
-  </script>
+<script src="./memo2_logic.js"></script>
 </body>
 </html>
