@@ -744,3 +744,41 @@ function checkCorrectAnswer() {
   const answer = currentQueue[currentIndex]?.answer ?? '';
   answerDisplay.textContent = showAnswerToggle ? '正解: ' + answer : '';
 }
+const CLIENT_ID = 'YOUR_CLIENT_ID';
+const API_KEY = 'YOUR_API_KEY'; // 無くても良いがあれば便利
+const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+
+function gapiInit() {
+  gapi.load('client:auth2', () => {
+    gapi.client.init({
+      apiKey: API_KEY,
+      clientId: CLIENT_ID,
+      discoveryDocs: DISCOVERY_DOCS,
+      scope: SCOPES
+    }).then(() => {
+      gapi.auth2.getAuthInstance().signIn().then(() => {
+        console.log("ログイン成功");
+        saveToSheet(); // 例：保存処理をここで呼ぶ
+      });
+    });
+  });
+}
+
+function saveToSheet() {
+  const spreadsheetId = 'YOUR_SPREADSHEET_ID'; // 自分のスプレッドシートID
+  const data = questions.map(q => [q.question, q.answer, q.category, q.score]);
+
+  gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: 'Sheet1!A1',
+    valueInputOption: 'RAW',
+    resource: {
+      values: [["問題", "答え", "カテゴリ", "スコア"], ...data]
+    }
+  }).then(response => {
+    alert("保存成功！");
+  }, error => {
+    console.error("保存失敗", error);
+  });
+}
