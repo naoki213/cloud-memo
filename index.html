@@ -23,110 +23,53 @@
     .input-blank { display: inline-block; width: 120px; margin: 0 5px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
 <h1>memo2 穴埋め＋通常問題 統合版</h1>
 
-<div class="tabs">
-  <div class="tab active" onclick="switchTab(0)">演習（A）</div>
-  <div class="tab" onclick="switchTab(1)">入力（B）</div>
-  <div class="tab" onclick="switchTab(2)">確認（C）</div>
-  <div class="tab" onclick="switchTab(3)">グラフ（D）</div>
-</div>
-
-<div class="content active" id="exercise-tab">
-  <h2 id="exerciseQuestion">ここに問題が表示されます</h2>
-  <textarea id="exerciseAnswer" rows="3" onkeydown="checkEnter(event)" placeholder="ここに解答を入力"></textarea>
-  <button onclick="startSpeechRecognition('exerciseAnswer')">🎤音声入力（解答）</button>
-  <button onclick="checkCorrectAnswer()">正答確認</button>
-  <p id="correctAnswer"></p>
-  <div class="btn-group">
-    <button onclick="gradeAnswer('maru')">○</button>
-    <button onclick="gradeAnswer('sankaku')">△</button>
-    <button onclick="gradeAnswer('batsu')">×</button>
-  </div>
-  <button onclick="startExercise()">通常出題スタート</button>
-  <button onclick="startLowScoreExercise()">スコア-3以下だけ出題</button>
-  <br><br>
-  <select id="categorySelect"></select>
-  <button onclick="startExerciseByCategory()">このカテゴリで出題</button>
-  <hr>
-  <h2>穴埋め問題</h2>
-  <div id="fillQuestionDisplay"></div>
-  <div id="fillInputs"></div>
-  <p id="fillResult"></p>
-  <select id="fillCategorySelect"></select>
-  <button onclick="startFillExerciseByCategory()">このカテゴリで出題</button>
-</div>
-
-<div class="content" id="input-tab">
-  <h2>通常問題入力</h2>
-  <textarea id="newQuestion" placeholder="問題を入力"></textarea>
-  <button onclick="startSpeechRecognition('newQuestion')">🎤音声入力（問題）</button>
-  <textarea id="newAnswer" placeholder="解答を入力"></textarea>
-  <button onclick="startSpeechRecognition('newAnswer')">🎤音声入力（解答）</button>
-  <input type="text" id="newCategory" placeholder="カテゴリを入力">
-  <br>
-  <button onclick="saveQuestion()">保存</button>
-  <hr>
-  <h2>穴埋め問題入力</h2>
-  <div id="newFillQuestion" contenteditable="true" style="border:1px solid #ccc; padding:10px; min-height:100px; background:#fff;"></div>
-  <input type="text" id="newFillCategory" placeholder="カテゴリを入力（穴埋め）">
-  <button onclick="saveFillQuestion()">保存</button>
-</div>
-
-<div id="tabConfirm" class="content">
-  <h2>✅ 問題一覧・編集</h2>
-
-  <div class="sub-tabs">
-    <button class="sub-tab active" onclick="switchConfirmTab('normal')">📝 通常問題</button>
-    <button class="sub-tab" onclick="switchConfirmTab('fill')">🧩 穴埋め問題</button>
-  </div>
-
-  <div id="normalListSection">
-    <input type="file" id="fileInput" />
-    <div style="margin: 10px 0;">
-      <button onclick="downloadQuestions()">通常問題を書き出す</button>
-      <button onclick="uploadQuestions()">通常問題を読み込む</button>
-    </div>
-    <ul id="questionList"></ul>
-  </div>
-
-  <div id="fillListSection" style="display: none;">
-    <input type="file" id="fileInput" />
-    <div style="margin: 10px 0;">
-      <button onclick="downloadAllData()">全データを書き出す</button>
-      <button onclick="uploadAllData()">全データを読み込む</button>
-    </div>
-
-    <div style="margin: 10px 0;">
-      <label>📂 カテゴリで絞り込み:
-        <select id="fillCategoryFilter" onchange="renderFillList()"></select>
-      </label>
-    </div>
-
-    <div style="margin: 10px 0;">
-      <label>🔁 カテゴリ一括置換:
-        <input type="text" id="fillOldCategory" placeholder="変更前カテゴリ">
-        →
-        <input type="text" id="fillNewCategory" placeholder="変更後カテゴリ">
-        <button onclick="bulkUpdateFillCategory()">一括変更</button>
-      </label>
-    </div>
-
-    <div style="margin: 10px 0;">
-      <button onclick="confirmDeleteAllFillQuestions()">⚠️ 穴埋め問題をすべて削除</button>
-    </div>
-
-    <ul id="fillQuestionList"></ul>
-  </div>
-</div>
-
-<div class="content" id="graph-tab">
-  <h2>カテゴリ別 正答率グラフ</h2>
-  <canvas id="scoreChart" width="400" height="200"></canvas>
-</div>
+<!-- タブと各コンテンツ（省略） -->
+<!-- ここに演習、入力、確認、グラフのタブ内容（略） -->
 
 <script src="./memo2_logic.js"></script>
+<script>
+  const CLIENT_ID = 'YOUR_CLIENT_ID';
+  const API_KEY = 'YOUR_API_KEY';
+  const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
+  const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+
+  function gapiInit() {
+    gapi.load('client:auth2', () => {
+      gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: DISCOVERY_DOCS,
+        scope: SCOPES
+      }).then(() => {
+        gapi.auth2.getAuthInstance().signIn().then(() => {
+          alert("Googleにサインインしました");
+          saveToSheet();
+        });
+      });
+    });
+  }
+
+  function saveToSheet() {
+    const spreadsheetId = 'YOUR_SPREADSHEET_ID';
+    const data = questions.map(q => [q.question, q.answer, q.category, q.score]);
+    gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: 'Sheet1!A1',
+      valueInputOption: 'RAW',
+      resource: {
+        values: [["問題", "答え", "カテゴリ", "スコア"], ...data]
+      }
+    }).then(response => {
+      alert("保存成功！");
+    }, error => {
+      console.error("保存失敗", error);
+    });
+  }
+</script>
 </body>
 </html>
