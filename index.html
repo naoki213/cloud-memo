@@ -28,13 +28,107 @@
 <body>
 <h1>memo2 穴埋め＋通常問題 統合版</h1>
 
-<!-- タブと各コンテンツ（省略） -->
-<!-- ここに演習、入力、確認、グラフのタブ内容（略） -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(0)">演習（A）</div>
+  <div class="tab" onclick="switchTab(1)">入力（B）</div>
+  <div class="tab" onclick="switchTab(2)">確認（C）</div>
+  <div class="tab" onclick="switchTab(3)">グラフ（D）</div>
+</div>
+
+<div class="content active" id="exercise-tab">
+  <h2 id="exerciseQuestion">ここに問題が表示されます</h2>
+  <textarea id="exerciseAnswer" rows="3" onkeydown="checkEnter(event)" placeholder="ここに解答を入力"></textarea>
+  <button onclick="startSpeechRecognition('exerciseAnswer')">🎤音声入力（解答）</button>
+  <button onclick="checkCorrectAnswer()">正答確認</button>
+  <p id="correctAnswer"></p>
+  <div class="btn-group">
+    <button onclick="gradeAnswer('maru')">○</button>
+    <button onclick="gradeAnswer('sankaku')">△</button>
+    <button onclick="gradeAnswer('batsu')">×</button>
+  </div>
+  <button onclick="startExercise()">通常出題スタート</button>
+  <button onclick="startLowScoreExercise()">スコア-3以下だけ出題</button>
+  <br><br>
+  <select id="categorySelect"></select>
+  <button onclick="startExerciseByCategory()">このカテゴリで出題</button>
+  <hr>
+  <h2>穴埋め問題</h2>
+  <div id="fillQuestionDisplay"></div>
+  <div id="fillInputs"></div>
+  <p id="fillResult"></p>
+  <select id="fillCategorySelect"></select>
+  <button onclick="startFillExerciseByCategory()">このカテゴリで出題</button>
+</div>
+
+<div class="content" id="input-tab">
+  <h2>通常問題入力</h2>
+  <textarea id="newQuestion" placeholder="問題を入力"></textarea>
+  <button onclick="startSpeechRecognition('newQuestion')">🎤音声入力（問題）</button>
+  <textarea id="newAnswer" placeholder="解答を入力"></textarea>
+  <button onclick="startSpeechRecognition('newAnswer')">🎤音声入力（解答）</button>
+  <input type="text" id="newCategory" placeholder="カテゴリを入力">
+  <br>
+  <button onclick="saveQuestion()">保存</button>
+  <hr>
+  <h2>穴埋め問題入力</h2>
+  <div id="newFillQuestion" contenteditable="true" style="border:1px solid #ccc; padding:10px; min-height:100px; background:#fff;"></div>
+  <input type="text" id="newFillCategory" placeholder="カテゴリを入力（穴埋め）">
+  <button onclick="saveFillQuestion()">保存</button>
+</div>
+
+<div class="content" id="tabConfirm">
+  <h2>✅ 問題一覧・編集</h2>
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="switchConfirmTab('normal')">📝 通常問題</button>
+    <button class="sub-tab" onclick="switchConfirmTab('fill')">🧩 穴埋め問題</button>
+  </div>
+  <div id="normalListSection">
+    <input type="file" id="fileInput" />
+    <div style="margin: 10px 0;">
+      <button onclick="downloadQuestions()">通常問題を書き出す</button>
+      <button onclick="uploadQuestions()">通常問題を読み込む</button>
+      <button onclick="gapiInit()">📤 Google Sheets に保存</button>
+    </div>
+    <ul id="questionList"></ul>
+  </div>
+  <div id="fillListSection" style="display: none;">
+    <input type="file" id="fileInput" />
+    <div style="margin: 10px 0;">
+      <button onclick="downloadAllData()">全データを書き出す</button>
+      <button onclick="uploadAllData()">全データを読み込む</button>
+    </div>
+    <div style="margin: 10px 0;">
+      <label>📂 カテゴリで絞り込み:
+        <select id="fillCategoryFilter" onchange="renderFillList()"></select>
+      </label>
+    </div>
+    <div style="margin: 10px 0;">
+      <label>🔁 カテゴリ一括置換:
+        <input type="text" id="fillOldCategory" placeholder="変更前カテゴリ">
+        →
+        <input type="text" id="fillNewCategory" placeholder="変更後カテゴリ">
+        <button onclick="bulkUpdateFillCategory()">一括変更</button>
+      </label>
+    </div>
+    <div style="margin: 10px 0;">
+      <button onclick="confirmDeleteAllFillQuestions()">⚠️ 穴埋め問題をすべて削除</button>
+    </div>
+    <ul id="fillQuestionList"></ul>
+  </div>
+</div>
+
+<div class="content" id="graph-tab">
+  <h2>カテゴリ別 正答率グラフ</h2>
+  <canvas id="scoreChart" width="400" height="200"></canvas>
+</div>
+
 
 <script src="./memo2_logic.js"></script>
 <script>
-  const CLIENT_ID = 'YOUR_CLIENT_ID';
-  const API_KEY = 'YOUR_API_KEY';
+  const CLIENT_ID = '916581645359-nkcs37eb0d618i25bh2up67jklrqbe4t.apps.googleusercontent.com';
+  const API_KEY = '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';
+  const SPREADSHEET_ID = '1_O80K90S0n-hGN5b9j3ejnjQtclmH9eW2i0m33F4s1U
+';
   const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
   const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
 
@@ -48,26 +142,80 @@
       }).then(() => {
         gapi.auth2.getAuthInstance().signIn().then(() => {
           alert("Googleにサインインしました");
-          saveToSheet();
         });
       });
     });
   }
 
   function saveToSheet() {
-    const spreadsheetId = 'YOUR_SPREADSHEET_ID';
     const data = questions.map(q => [q.question, q.answer, q.category, q.score]);
     gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId,
+      spreadsheetId: SPREADSHEET_ID,
       range: 'Sheet1!A1',
       valueInputOption: 'RAW',
       resource: {
         values: [["問題", "答え", "カテゴリ", "スコア"], ...data]
       }
-    }).then(response => {
-      alert("保存成功！");
+    }).then(() => {
+      alert("通常問題をGoogle Sheetsに保存しました");
     }, error => {
       console.error("保存失敗", error);
+      alert("保存に失敗しました");
+    });
+  }
+
+  function saveFillToSheet() {
+    const values = fillQuestions.map(q => [
+      q.html,
+      q.answers.join(','),
+      q.category,
+      q.score ?? 0,
+      q.answerCount ?? 0,
+      q.correctCount ?? 0
+    ]);
+
+    gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Sheet2!A1',
+      valueInputOption: 'RAW',
+      resource: {
+        values: [["html", "answers", "category", "score", "answerCount", "correctCount"], ...values]
+      }
+    }).then(() => {
+      alert("穴埋め問題をGoogle Sheetsに保存しました");
+    }, error => {
+      console.error("保存エラー", error);
+      alert("保存に失敗しました");
+    });
+  }
+
+  function loadFillFromSheet() {
+    gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Sheet2!A2:F'
+    }).then(response => {
+      const rows = response.result.values;
+      if (!rows || rows.length === 0) {
+        alert('データが見つかりませんでした');
+        return;
+      }
+
+      fillQuestions = rows.map(row => ({
+        html: row[0] || '',
+        answers: (row[1] || '').split(',').map(ans => ans.trim()),
+        category: row[2] || '',
+        score: parseFloat(row[3] || '0'),
+        answerCount: parseInt(row[4] || '0'),
+        correctCount: parseInt(row[5] || '0')
+      }));
+
+      localStorage.setItem('fillQuestions', JSON.stringify(fillQuestions));
+      renderFillList();
+      updateFillCategoryOptions();
+      alert(`穴埋め問題 ${fillQuestions.length} 件を読み込みました`);
+    }, error => {
+      console.error('読み込みエラー', error);
+      alert('読み込みに失敗しました');
     });
   }
 </script>
