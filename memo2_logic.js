@@ -302,34 +302,6 @@ function showFillQuestion() {
 }
 
 function checkFillAnswer() {
-  const inputs = document.querySelectorAll('#fillInputs input');
-  const userAnswers = Array.from(inputs).map(input => input.value.trim());
-  const correctAnswers = currentQueue[currentIndex].answers;
-  let allCorrect = true;
-  const feedback = [];
-
-  for (let i = 0; i < correctAnswers.length; i++) {
-    if (userAnswers[i] !== correctAnswers[i]) {
-      allCorrect = false;
-      inputs[i].style.color = 'red'; // ✳️ 不正解を赤色に
-    } else {
-      inputs[i].style.color = 'black'; // ✳️ 正解は黒に戻す（前の状態をリセット）
-    }
-    feedback.push(`(${userAnswers[i]} / ${correctAnswers[i]})`);
-  }
-
-  const resultText = allCorrect ? '正解！' : `不正解: ${feedback.join(' , ')}`;
-  document.getElementById('fillResult').textContent = resultText;
-
-  const index = currentQueue[currentIndex].index;
-  fillQuestions[index].answerCount = (fillQuestions[index].answerCount ?? 0) + 1;
-  if (allCorrect) fillQuestions[index].correctCount = (fillQuestions[index].correctCount ?? 0) + 1;
-  fillQuestions[index].score = (fillQuestions[index].score ?? 0) + (allCorrect ? 1 : -1);
-
-  localStorage.setItem('fillQuestions', JSON.stringify(fillQuestions));
-  isFillAnswered = true;
-}
-function checkFillAnswer() {
   // ① 現在の入力欄のすべての input を取得
   const inputs = document.querySelectorAll('#fillInputs input');
 
@@ -744,8 +716,8 @@ function checkCorrectAnswer() {
   const answer = currentQueue[currentIndex]?.answer ?? '';
   answerDisplay.textContent = showAnswerToggle ? '正解: ' + answer : '';
 }
-const CLIENT_ID = 'YOUR_CLIENT_ID';
-const API_KEY = 'YOUR_API_KEY'; // 無くても良いがあれば便利
+const CLIENT_ID = '916581645359-...apps.googleusercontent.com';
+const API_KEY = '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'; // 無くても良いがあれば便利
 const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
 const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
 
@@ -765,6 +737,7 @@ function gapiInit() {
   });
 }
 
+
 function saveToSheet() {
   const spreadsheetId = 'YOUR_SPREADSHEET_ID'; // 自分のスプレッドシートID
   const data = questions.map(q => [q.question, q.answer, q.category, q.score]);
@@ -780,5 +753,63 @@ function saveToSheet() {
     alert("保存成功！");
   }, error => {
     console.error("保存失敗", error);
+  });
+}
+function saveFillToSheet() {
+  const spreadsheetId = '1_O80K90S0n-hGN5b9j3ejnjQtclmH9eW2i0m33F4s1U
+';
+  const values = fillQuestions.map(q => [
+    q.html,
+    q.answers.join(','),
+    q.category,
+    q.score ?? 0,
+    q.answerCount ?? 0,
+    q.correctCount ?? 0
+  ]);
+
+  gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: 'Sheet2!A1',
+    valueInputOption: 'RAW',
+    resource: {
+      values: [["html", "answers", "category", "score", "answerCount", "correctCount"], ...values]
+    }
+  }).then(() => {
+    alert("穴埋め問題をGoogle Sheetsに保存しました");
+  }, error => {
+    console.error("保存エラー", error);
+    alert("保存に失敗しました");
+  });
+}
+
+function loadFillFromSheet() {
+  const spreadsheetId = '1_O80K90S0n-hGN5b9j3ejnjQtclmH9eW2i0m33F4s1U
+';
+  gapi.client.sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: 'Sheet2!A2:F'
+  }).then(response => {
+    const rows = response.result.values;
+    if (!rows || rows.length === 0) {
+      alert('データが見つかりませんでした');
+      return;
+    }
+
+    fillQuestions = rows.map(row => ({
+      html: row[0] || '',
+      answers: (row[1] || '').split(',').map(ans => ans.trim()),
+      category: row[2] || '',
+      score: parseFloat(row[3] || '0'),
+      answerCount: parseInt(row[4] || '0'),
+      correctCount: parseInt(row[5] || '0')
+    }));
+
+    localStorage.setItem('fillQuestions', JSON.stringify(fillQuestions));
+    renderFillList();
+    updateFillCategoryOptions();
+    alert(`穴埋め問題 ${fillQuestions.length} 件を読み込みました`);
+  }, error => {
+    console.error('読み込みエラー', error);
+    alert('読み込みに失敗しました');
   });
 }
