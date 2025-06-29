@@ -2,6 +2,23 @@
 let questions = JSON.parse(localStorage.getItem('questions') || '[]');
 let fillQuestions = JSON.parse(localStorage.getItem('fillQuestions') || '[]');
 
+let exerciseStats = JSON.parse(localStorage.getItem('exerciseStats') || '{"correct":0,"total":0}');
+updateTotalCorrectDisplay();
+
+function updateTotalCorrectDisplay() {
+  const display = document.getElementById('totalCorrectDisplay');
+  if (display) {
+    display.textContent = `正答数: ${exerciseStats.correct} / ${exerciseStats.total}`;
+  }
+}
+
+function resetTotalCorrectDisplay() {
+  exerciseStats = { correct: 0, total: 0 };
+  localStorage.setItem('exerciseStats', JSON.stringify(exerciseStats));
+  updateTotalCorrectDisplay();
+}
+
+
 questions.forEach(q => {
   q.score = q.score ?? 0;
   q.category = q.category ?? '';
@@ -176,6 +193,14 @@ function gradeAnswer(grade) {
     currentQueue.splice(currentIndex + insertOffset, 0, retryItem);
   }
 
+// 🔽 Aタブの正答数カウントに追加
+exerciseStats.total++;
+if (grade === 'maru') exerciseStats.correct++;
+localStorage.setItem('exerciseStats', JSON.stringify(exerciseStats));
+updateTotalCorrectDisplay();
+
+  
+
   // 保存と次の問題へ
   localStorage.setItem('questions', JSON.stringify(questions));
   currentIndex++;
@@ -302,6 +327,34 @@ function showFillQuestion() {
 }
 
 function checkFillAnswer() {
+  const inputs = document.querySelectorAll('#fillInputs input');
+  const userAnswers = Array.from(inputs).map(input => input.value.trim());
+  const correctAnswers = currentQueue[currentIndex].answers;
+  let allCorrect = true;
+  const feedback = [];
+
+  for (let i = 0; i < correctAnswers.length; i++) {
+    if (userAnswers[i] !== correctAnswers[i]) {
+      allCorrect = false;
+      inputs[i].style.color = 'red'; // ✳️ 不正解を赤色に
+    } else {
+      inputs[i].style.color = 'black'; // ✳️ 正解は黒に戻す（前の状態をリセット）
+    }
+    feedback.push(`(${userAnswers[i]} / ${correctAnswers[i]})`);
+  }
+
+  const resultText = allCorrect ? '正解！' : `不正解: ${feedback.join(' , ')}`;
+  document.getElementById('fillResult').textContent = resultText;
+
+  const index = currentQueue[currentIndex].index;
+  fillQuestions[index].answerCount = (fillQuestions[index].answerCount ?? 0) + 1;
+  if (allCorrect) fillQuestions[index].correctCount = (fillQuestions[index].correctCount ?? 0) + 1;
+  fillQuestions[index].score = (fillQuestions[index].score ?? 0) + (allCorrect ? 1 : -1);
+
+  localStorage.setItem('fillQuestions', JSON.stringify(fillQuestions));
+  isFillAnswered = true;
+}
+function checkFillAnswer() {
   // ① 現在の入力欄のすべての input を取得
   const inputs = document.querySelectorAll('#fillInputs input');
 
@@ -416,9 +469,9 @@ function renderFillList() {
     li.innerHTML = `
       問題${i + 1}: ${q.html}<br>
       カテゴリ: <input value="${q.category || ''}" onchange="editFillCategory(${i}, this.value)">
-      ／ 答え: ${q.answers.join(', ')} 
-      <span class="score ${scoreClass}">（${q.score}）</span> 
-      回答数: ${q.answerCount} ／ 正答率: ${rate}% 
+      ／ 答え: ${q.answers.join(', ')}
+      <span class="score ${scoreClass}">（${q.score}）</span>
+      回答数: ${q.answerCount} ／ 正答率: ${rate}%
       <button onclick="deleteFillQuestion(${i})">🗑削除</button>
     `;
     list.appendChild(li);
@@ -468,24 +521,23 @@ function uploadQuestions() {
 
 
 // ================= グラフ描画（Chart.js） =================
-function renderChart() {
+function renderChart(threshold = 3) {
   const categoryStats = {};
+
   questions.forEach(q => {
     if (!q.origin) return;
     const cat = q.category || '未分類';
-    if (!categoryStats[cat]) categoryStats[cat] = { correct: 0, total: 0 };
-    const s = q.score ?? 0;
-    const absS = Math.abs(s);
-    if (absS > 0) {
-      categoryStats[cat].total += absS;
-      if (s > 0) categoryStats[cat].correct += s;
-    }
+    if (!categoryStats[cat]) categoryStats[cat] = { countAbove: 0, total: 0 };
+
+    categoryStats[cat].total++;
+    if ((q.score ?? 0) >= threshold) categoryStats[cat].countAbove++;
   });
+
   const labels = Object.keys(categoryStats);
   const data = labels.map(cat => {
-    const { correct, total } = categoryStats[cat];
-    const rate = total === 0 ? 0 : correct / total;
-    return parseFloat((rate * 100).toFixed(2));
+    const { countAbove, total } = categoryStats[cat];
+    const rate = total === 0 ? 0 : (countAbove / total) * 100;
+    return parseFloat(rate.toFixed(2));
   });
 
   const ctx = document.getElementById('scoreChart').getContext('2d');
@@ -494,7 +546,10 @@ function renderChart() {
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [{ label: '正答率（％）', data: data }]
+      datasets: [{
+        label: `スコア${threshold}以上の割合（％）`,
+        data: data
+      }]
     },
     options: {
       responsive: true,
@@ -532,15 +587,30 @@ function uploadAllData() {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data.questions) || !Array.isArray(data.fillQuestions)) throw new Error();
 
-      // 通常問題を整形
-      questions = data.questions.map(q => ({
-        ...q,
-        origin: true,
-        score: q.score ?? 0,
-        category: q.category ?? '',
-        answerCount: q.answerCount ?? 0,
-        correctCount: q.correctCount ?? 0
-      }));
+      // 通常問題を加算マージ
+data.questions.forEach(newQ => {
+  const existingIndex = questions.findIndex(q =>
+    q.question === newQ.question && q.answer === newQ.answer
+  );
+
+  if (existingIndex >= 0) {
+    // 既存の問題があれば、数値を加算
+    questions[existingIndex].score += newQ.score ?? 0;
+    questions[existingIndex].answerCount += newQ.answerCount ?? 0;
+    questions[existingIndex].correctCount += newQ.correctCount ?? 0;
+  } else {
+    // 新規問題として追加
+    questions.push({
+      ...newQ,
+      origin: true,
+      score: newQ.score ?? 0,
+      category: newQ.category ?? '',
+      answerCount: newQ.answerCount ?? 0,
+      correctCount: newQ.correctCount ?? 0
+    });
+  }
+});
+
 
       // 穴埋め問題をそのまま格納
       fillQuestions = data.fillQuestions;
@@ -716,100 +786,44 @@ function checkCorrectAnswer() {
   const answer = currentQueue[currentIndex]?.answer ?? '';
   answerDisplay.textContent = showAnswerToggle ? '正解: ' + answer : '';
 }
-const CLIENT_ID = '916581645359-...apps.googleusercontent.com';
-const API_KEY = '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'; // 無くても良いがあれば便利
-const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
-const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
 
-function gapiInit() {
-  gapi.load('client:auth2', () => {
-    gapi.client.init({
-      apiKey: API_KEY,
-      clientId: CLIENT_ID,
-      discoveryDocs: DISCOVERY_DOCS,
-      scope: SCOPES
-    }).then(() => {
-      gapi.auth2.getAuthInstance().signIn().then(() => {
-        console.log("ログイン成功");
-        saveToSheet(); // 例：保存処理をここで呼ぶ
-      });
-    });
-  });
+function loadFromGoogleSheet() {
+  const url = 'https://script.google.com/macros/s/AKfycbwTwbpg3pH-QnxtdWRNZC6Nwq_mGDF_WkXLnmflyjpTKl-MFO8n9tWTaLNXDjhVTlOH/exec';
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      questions = data.map(q => ({
+        ...q,
+        origin: true,
+        score: q.score ?? 0,
+        category: q.category ?? '',
+        answerCount: 0,
+        correctCount: 0
+      }));
+      localStorage.setItem('questions', JSON.stringify(questions));
+      alert('Google Sheets から読み込みました');
+      renderList();
+      renderChart();
+    }).catch(err => alert('読み込みエラー: ' + err.message));
 }
 
+function saveToGoogleSheet() {
+  const url = 'https://script.google.com/macros/s/AKfycbwvRLG10wcv6kw2EJF3X2CHRdU-NkWJ9rjl_uH5PpJJSm6VXXRy184yTl7IeVlqb5mU/exec';
+  const dataToSave = questions.map(q => ({
+    question: q.question,
+    answer: q.answer,
+    category: q.category,
+    score: q.score ?? 0
+  }));
 
-function saveToSheet() {
-  const spreadsheetId = 'YOUR_SPREADSHEET_ID'; // 自分のスプレッドシートID
-  const data = questions.map(q => [q.question, q.answer, q.category, q.score]);
-
-  gapi.client.sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: 'Sheet1!A1',
-    valueInputOption: 'RAW',
-    resource: {
-      values: [["問題", "答え", "カテゴリ", "スコア"], ...data]
-    }
-  }).then(response => {
-    alert("保存成功！");
-  }, error => {
-    console.error("保存失敗", error);
-  });
-}
-function saveFillToSheet() {
-  const spreadsheetId = '1_O80K90S0n-hGN5b9j3ejnjQtclmH9eW2i0m33F4s1U
-';
-  const values = fillQuestions.map(q => [
-    q.html,
-    q.answers.join(','),
-    q.category,
-    q.score ?? 0,
-    q.answerCount ?? 0,
-    q.correctCount ?? 0
-  ]);
-
-  gapi.client.sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: 'Sheet2!A1',
-    valueInputOption: 'RAW',
-    resource: {
-      values: [["html", "answers", "category", "score", "answerCount", "correctCount"], ...values]
-    }
-  }).then(() => {
-    alert("穴埋め問題をGoogle Sheetsに保存しました");
-  }, error => {
-    console.error("保存エラー", error);
-    alert("保存に失敗しました");
-  });
+  fetch(url, {
+    method: 'POST',
+    body: JSON.stringify(dataToSave),
+    headers: { 'Content-Type': 'application/json' }
+  }).then(res => {
+    if (!res.ok) throw new Error('保存失敗');
+    alert('Google Sheets に保存しました');
+  }).catch(err => alert('保存エラー: ' + err.message));
 }
 
-function loadFillFromSheet() {
-  const spreadsheetId = '1_O80K90S0n-hGN5b9j3ejnjQtclmH9eW2i0m33F4s1U
-';
-  gapi.client.sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: 'Sheet2!A2:F'
-  }).then(response => {
-    const rows = response.result.values;
-    if (!rows || rows.length === 0) {
-      alert('データが見つかりませんでした');
-      return;
-    }
-
-    fillQuestions = rows.map(row => ({
-      html: row[0] || '',
-      answers: (row[1] || '').split(',').map(ans => ans.trim()),
-      category: row[2] || '',
-      score: parseFloat(row[3] || '0'),
-      answerCount: parseInt(row[4] || '0'),
-      correctCount: parseInt(row[5] || '0')
-    }));
-
-    localStorage.setItem('fillQuestions', JSON.stringify(fillQuestions));
-    renderFillList();
-    updateFillCategoryOptions();
-    alert(`穴埋め問題 ${fillQuestions.length} 件を読み込みました`);
-  }, error => {
-    console.error('読み込みエラー', error);
-    alert('読み込みに失敗しました');
-  });
-}
