@@ -424,9 +424,9 @@
 
   function setReveal(show){
     isRevealed=show;
-    // 個別peekは毎回クリア
-    questionContainer.querySelectorAll('.mask').forEach(m => m.classList.remove('peek'));
-    if (show) {
+     // 個別peekを毎回クリア（状態が混ざらないように）
+　　　questionContainer.querySelectorAll('.mask').forEach(m => m.classList.remove('peek'));
+　 　　if (show) {
       revealBtn.textContent='解答を隠す';
       judgeBtns.classList.remove('hidden');
       questionContainer.querySelectorAll('.mask').forEach(m=>m.classList.add('revealed'));
