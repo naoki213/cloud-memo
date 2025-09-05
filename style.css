@@ -176,27 +176,25 @@ p { margin: 0 0 8px; }
   .main { padding: 8px; padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
   .card { padding: 12px; border-radius: 14px; }
 }
-/* ==== マスク表示の修正（iOS/Chrome 対応） ==== */
-.mask{
-  background:#c62828;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent;   /* ← これを追加 */
-  text-shadow:none !important;
-  border-radius:.25rem;
-  padding:0 .2em;
-  cursor:pointer;
+/* ==== マスク表示（元の色を維持する版） ==== */
+.mask {
+  background: #c62828;                  /* 赤いマスク背景 */
+  color: inherit !important;            /* 元の文字色を維持 */
+  -webkit-text-fill-color: transparent; /* 文字は透明化 */
+  text-shadow: none !important;
+  border-radius: .25rem;
+  padding: 0 .2em;
+  cursor: pointer;
 }
 
-/* 個別表示（タップでその部分だけ表示） */
-.mask.peek{
-  background:#ffffff;
-  color:#111827 !important;
-  -webkit-text-fill-color:#111827 !important;  /* ← これを追加 */
+/* 個別表示（タップで1箇所だけ表示） */
+.mask.peek {
+  background: #ffffff;
+  -webkit-text-fill-color: inherit !important; /* 元の色を復元 */
 }
 
-/* 全表示（解答確認ボタン） */
-.mask.revealed{
-  background:#ffffff;
-  color:#111827 !important;
-  -webkit-text-fill-color:#111827 !important;  /* ← これを追加 */
+/* 全表示（解答確認で全部表示） */
+.mask.revealed {
+  background: #ffffff;
+  -webkit-text-fill-color: inherit !important; /* 元の色を復元 */
 }
