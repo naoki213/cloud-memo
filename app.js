@@ -30,7 +30,7 @@
   let outbox = loadJSON(LS_KEYS.OUTBOX, []);
   let cloudIndex = loadJSON(LS_KEYS.CLOUD_INDEX, { problems: {}, daily: {} });
   let syncSettings = loadJSON(LS_KEYS.SYNC, {
-    clientId: '727845914673-m07n2rov9979sqls20l321v962jhmp6h.apps.googleusercontent.com', // ←あなたのOAuthクライアントID
+    clientId: '727845914673-nmvo6be9cfd6rt8ijir6r14fnfhoqoo7.apps.googleusercontent.com', // ←あなたのOAuthクライアントID
     sheetId: '',
     sheetProblems: 'Problems',
     sheetDaily: 'Daily',
