@@ -422,19 +422,22 @@
     target.classList.toggle('peek');
   });
 
-  function setReveal(show){
-    isRevealed=show;
-     // 個別peekを毎回クリア（状態が混ざらないように）
-　　　questionContainer.querySelectorAll('.mask').forEach(m => m.classList.remove('peek'));
-　 　　if (show) {
-      revealBtn.textContent='解答を隠す';
-      judgeBtns.classList.remove('hidden');
-      questionContainer.querySelectorAll('.mask').forEach(m=>m.classList.add('revealed'));
-    } else {
-      revealBtn.textContent='解答確認';
-      judgeBtns.classList.add('hidden');
-      questionContainer.querySelectorAll('.mask').forEach(m=>m.classList.remove('revealed'));
-    }
+ function setReveal(show){
+  isRevealed = show;
+- if (show) {
++ // 個別peekを毎回クリア（状態が混ざらないように）
++ questionContainer.querySelectorAll('.mask').forEach(m => m.classList.remove('peek'));
++ if (show) {
+    revealBtn.textContent = '解答を隠す';
+    judgeBtns.classList.remove('hidden');
+    questionContainer.querySelectorAll('.mask').forEach(m => m.classList.add('revealed'));
+  } else {
+    revealBtn.textContent = '解答確認';
+    judgeBtns.classList.add('hidden');
+    questionContainer.querySelectorAll('.mask').forEach(m => m.classList.remove('revealed'));
+  }
+}
+
   }
   revealBtn.addEventListener('click', ()=>setReveal(!isRevealed));
 
