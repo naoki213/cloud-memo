@@ -32,7 +32,7 @@
   let outbox = loadJSON(LS_KEYS.OUTBOX, []);               // [{kind:'problem'|'daily', id|date, op:'upsert'|'delete'}]
   let cloudIndex = loadJSON(LS_KEYS.CLOUD_INDEX, { problems: {}, daily: {} }); // { problems: {id: row}, daily: {date: row} }
   let syncSettings = loadJSON(LS_KEYS.SYNC, {
-    clientId: 'YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com', // ←差し替え
+    clientId: '1jQExW8ayeDhaDZ3E2PN7GWJRZ9TNCSTFFW0EFSoVn3M', // ←差し替え
     sheetId: '',
     sheetProblems: 'Problems',
     sheetDaily: 'Daily',
