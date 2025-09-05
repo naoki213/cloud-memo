@@ -10,8 +10,8 @@
 (() => {
   /* ======= 埋め込み設定（ここだけ編集すればOK） ======= */
   const CONFIG = {
-    OAUTH_CLIENT_ID: '727845914673-m07n2rov9979sqls20l321v962jhmp6h.apps.googleusercontent.com',
-    HARD_CODED_SHEET_ID: '',  // ← ここに Spreadsheet ID を入れるとUIが隠れ、そのIDを使用します。空ならUI入力。
+    OAUTH_CLIENT_ID: '727845914673-nmvo6be9cfd6rt8ijir6r14fnfhoqoo7.apps.googleusercontent.com',
+    HARD_CODED_SHEET_ID: '1jQExW8ayeDhaDZ3E2PN7GWJRZ9TNCSTFFW0EFSoVn3M',  // ← ここに Spreadsheet ID を入れるとUIが隠れ、そのIDを使用します。空ならUI入力。
     SHEET_PROBLEMS: 'Problems',
     SHEET_DAILY: 'Daily',
   };
