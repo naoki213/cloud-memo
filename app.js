@@ -10,7 +10,7 @@
   /* ======= 設定 ======= */
   const CONFIG = {
     OAUTH_CLIENT_ID: '727845914673-nmvo6be9cfd6rt8ijir6r14fnfhoqoo7.apps.googleusercontent.com',
-    HARD_CODED_SHEET_ID: '',   // ← 固定したい場合はここに Spreadsheet ID（空ならUI入力）
+    HARD_CODED_SHEET_ID: '1jQExW8ayeDhaDZ3E2PN7GWJRZ9TNCSTFFW0EFSoVn3M',   // ← 固定したい場合はここに Spreadsheet ID（空ならUI入力）
     SHEET_PROBLEMS: 'Problems',
     SHEET_DAILY: 'Daily',
   };
