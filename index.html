@@ -16,7 +16,7 @@
   <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
-  <!-- ===== 上部固定タブ ===== -->
+  <!-- ===== 上部固定タブ（同期UIは削除） ===== -->
   <header class="topbar">
     <nav class="tabs">
       <button class="tab-btn active" data-target="#tab-a">A 問題演習</button>
@@ -24,37 +24,6 @@
       <button class="tab-btn" data-target="#tab-c">C 編集・確認</button>
       <button class="tab-btn" data-target="#tab-d">D 記録</button>
     </nav>
-
-    <!-- 同期ステータス & 操作 -->
-    <div class="syncbar">
-      <span id="syncBadge" class="badge badge-gray">未初期化</span>
-      <button id="loginBtn" class="btn small">Googleログイン</button>
-      <button id="logoutBtn" class="btn small outline">ログアウト</button>
-      <button id="syncNowBtn" class="btn small primary">今すぐ同期</button>
-      <details class="sync-settings">
-        <summary>同期設定</summary>
-        <div class="sync-panel">
-          <label>Spreadsheet ID
-            <input id="sheetIdInput" class="input" placeholder="1AbCdEf...（URLのID）" />
-          </label>
-          <div class="row gap">
-            <label>Problems シート名 <input id="sheetProblemsInput" class="input" value="Problems" /></label>
-            <label>Daily シート名 <input id="sheetDailyInput" class="input" value="Daily" /></label>
-          </div>
-          <button id="saveSyncSettingsBtn" class="btn">保存</button>
-          <div class="muted">※ シートには1行目にヘッダ行が必要です（下の「シート準備」を参照）。</div>
-        </div>
-      </details>
-      <details class="sync-settings">
-        <summary>シート準備（初回のみ）</summary>
-        <div class="sync-panel">
-          <p>各シートの1行目に以下のヘッダを作成してください。</p>
-          <p><b>Problems</b>：id, html, answers, categories, score, answerCount, correctCount, deleted, createdAt, updatedAt</p>
-          <p><b>Daily</b>：date, correct, total, ge3, ge5, ge10, updatedAt</p>
-          <p>※ 文字列配列（answers, categories）はJSON文字列として保存されます。</p>
-        </div>
-      </details>
-    </div>
   </header>
 
   <main class="main">
@@ -112,11 +81,42 @@
       </div>
     </section>
 
-    <!-- ====== C: 編集・確認 ====== -->
+    <!-- ====== C: 編集・確認（＋同期UIをここに集約） ====== -->
     <section id="tab-c" class="page">
       <div class="card">
-        <h2>編集・確認</h2>
+        <h2>Google 同期</h2>
+        <div class="row wrap" style="align-items:center">
+          <span id="syncBadge" class="badge badge-gray">未初期化</span>
+          <button id="loginBtn" class="btn small">Googleログイン</button>
+          <button id="logoutBtn" class="btn small outline">ログアウト</button>
+          <button id="syncNowBtn" class="btn small primary">今すぐ同期</button>
+        </div>
+        <details class="sync-settings" id="syncSettingsDetails">
+          <summary>同期設定</summary>
+          <div class="sync-panel">
+            <label>Spreadsheet ID
+              <input id="sheetIdInput" class="input" placeholder="1AbCdEf...（URLのID）" />
+            </label>
+            <div class="row gap">
+              <label>Problems シート名 <input id="sheetProblemsInput" class="input" value="Problems" /></label>
+              <label>Daily シート名 <input id="sheetDailyInput" class="input" value="Daily" /></label>
+            </div>
+            <button id="saveSyncSettingsBtn" class="btn">保存</button>
+            <div class="muted">※ シートの1行目にヘッダが必要です（下の「シート準備」参照）。</div>
+          </div>
+        </details>
+        <details class="sync-settings">
+          <summary>シート準備（初回のみ）</summary>
+          <div class="sync-panel">
+            <p>各シートの1行目に以下のヘッダを作成してください。</p>
+            <p><b>Problems</b>：id, html, answers, categories, score, answerCount, correctCount, deleted, createdAt, updatedAt</p>
+            <p><b>Daily</b>：date, correct, total, ge3, ge5, ge10, updatedAt</p>
+          </div>
+        </details>
+      </div>
 
+      <div class="card">
+        <h2>編集・確認</h2>
         <div class="row wrap">
           <div class="chips" id="catChips"></div>
           <button id="clearCatFilterBtn" class="btn">カテゴリ絞り込み解除</button>
@@ -188,4 +188,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-
