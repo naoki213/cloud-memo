@@ -10,7 +10,9 @@
   <!-- Chart.js（Dタブのグラフ用） -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <!-- Google API (Sheets) -->
+  <!-- Google Identity Services（新しい認証） -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Google API client（Sheets 用） -->
   <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
@@ -48,7 +50,7 @@
         <div class="sync-panel">
           <p>各シートの1行目に以下のヘッダを作成してください。</p>
           <p><b>Problems</b>：id, html, answers, categories, score, answerCount, correctCount, deleted, createdAt, updatedAt</p>
-          <p><b>Daily</b>：date, correct, total, ge3, ge5, ge10</p>
+          <p><b>Daily</b>：date, correct, total, ge3, ge5, ge10, updatedAt</p>
           <p>※ 文字列配列（answers, categories）はJSON文字列として保存されます。</p>
         </div>
       </details>
@@ -186,3 +188,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+
