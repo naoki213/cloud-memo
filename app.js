@@ -1,12 +1,21 @@
 /* =========================
    消費税法 暗記アプリ + Google Sheets 同期（GIS対応・安全同期）
-   - 同時編集なし想定
-   - 起動（ログイン直後）は Pull→マージのみ（Pushしない）
+   - 同期UIは C タブのみ
+   - HARD_CODED_SHEET_ID があればそれを使用（設定UIは自動で隠す）
+   - 起動（ログイン直後）は Pull→マージのみ
    - 変更は outbox に積んで「今すぐ同期」で Push
    - 削除は deleted:true のソフト削除
    ========================= */
 
 (() => {
+  /* ======= 埋め込み設定（ここだけ編集すればOK） ======= */
+  const CONFIG = {
+    OAUTH_CLIENT_ID: '727845914673-m07n2rov9979sqls20l321v962jhmp6h.apps.googleusercontent.com',
+    HARD_CODED_SHEET_ID: '',  // ← ここに Spreadsheet ID を入れるとUIが隠れ、そのIDを使用します。空ならUI入力。
+    SHEET_PROBLEMS: 'Problems',
+    SHEET_DAILY: 'Daily',
+  };
+
   // ======= ストレージ鍵
   const LS_KEYS = {
     PROBLEMS: 'problems_v1',
@@ -29,12 +38,18 @@
   let dailyThresholds = loadJSON(LS_KEYS.DAILYTHRESH, {});
   let outbox = loadJSON(LS_KEYS.OUTBOX, []);
   let cloudIndex = loadJSON(LS_KEYS.CLOUD_INDEX, { problems: {}, daily: {} });
+
+  // 同期設定（ローカル設定＋CONFIGの上書き）
   let syncSettings = loadJSON(LS_KEYS.SYNC, {
-    clientId: '727845914673-nmvo6be9cfd6rt8ijir6r14fnfhoqoo7.apps.googleusercontent.com', // ←あなたのOAuthクライアントID
+    clientId: CONFIG.OAUTH_CLIENT_ID,
     sheetId: '',
-    sheetProblems: 'Problems',
-    sheetDaily: 'Daily',
+    sheetProblems: CONFIG.SHEET_PROBLEMS,
+    sheetDaily: CONFIG.SHEET_DAILY,
   });
+  // ハードコードIDがあれば採用
+  if (CONFIG.HARD_CODED_SHEET_ID) {
+    syncSettings.sheetId = CONFIG.HARD_CODED_SHEET_ID;
+  }
 
   // ======= DOM 参照
   const tabButtons = document.querySelectorAll('.tab-btn');
@@ -56,12 +71,22 @@
   const catInput = document.getElementById('catInput');
   const saveProblemBtn = document.getElementById('saveProblemBtn');
 
-  // C
+  // C（同期UIもここ）
   const problemList = document.getElementById('problemList');
   const catChips = document.getElementById('catChips');
   const clearCatFilterBtn = document.getElementById('clearCatFilterBtn');
   const exportJsonBtn = document.getElementById('exportJsonBtn');
   const importJsonInput = document.getElementById('importJsonInput');
+
+  const syncBadge = document.getElementById('syncBadge');
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const syncNowBtn = document.getElementById('syncNowBtn');
+  const syncSettingsDetails = document.getElementById('syncSettingsDetails');
+  const sheetIdInput = document.getElementById('sheetIdInput');
+  const sheetProblemsInput = document.getElementById('sheetProblemsInput');
+  const sheetDailyInput = document.getElementById('sheetDailyInput');
+  const saveSyncSettingsBtn = document.getElementById('saveSyncSettingsBtn');
 
   // D
   const progressCanvas = document.getElementById('progressChart');
@@ -82,16 +107,6 @@
   const editCancelBtn = document.getElementById('editCancelBtn');
   const editSaveBtn = document.getElementById('editSaveBtn');
   const editMeta = document.getElementById('editMeta');
-
-  // 同期UI
-  const loginBtn = document.getElementById('loginBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const syncNowBtn = document.getElementById('syncNowBtn');
-  const syncBadge = document.getElementById('syncBadge');
-  const sheetIdInput = document.getElementById('sheetIdInput');
-  const sheetProblemsInput = document.getElementById('sheetProblemsInput');
-  const sheetDailyInput = document.getElementById('sheetDailyInput');
-  const saveSyncSettingsBtn = document.getElementById('saveSyncSettingsBtn');
 
   // ======= ユーティリティ
   function saveAll() {
@@ -217,10 +232,23 @@
   });
 
   /* ======================
-     C: 編集・確認
+     C: 編集・確認（＋同期UI制御）
      ====================== */
   let currentCatFilter = [];
-  function renderC(){ renderCategoryChips(); renderProblemList(); }
+  function renderC(){ renderCategoryChips(); renderProblemList(); setupSyncUIVisibility(); }
+  function setupSyncUIVisibility(){
+    // HARD_CODED_SHEET_ID があれば設定UIを隠す＆入力欄に値を反映して disable
+    if (CONFIG.HARD_CODED_SHEET_ID) {
+      sheetIdInput.value = CONFIG.HARD_CODED_SHEET_ID;
+      sheetIdInput.disabled = true;
+      sheetProblemsInput.value = CONFIG.SHEET_PROBLEMS;
+      sheetDailyInput.value = CONFIG.SHEET_DAILY;
+      sheetProblemsInput.disabled = true;
+      sheetDailyInput.disabled = true;
+      // <details> 自体を非表示
+      if (syncSettingsDetails) syncSettingsDetails.style.display = 'none';
+    }
+  }
   function renderCategoryChips(){
     const allCats = new Set();
     problems.filter(p=>!p.deleted).forEach(p => (p.categories || []).forEach(c => allCats.add(c)));
@@ -489,15 +517,19 @@
   let tokenClient = null;
   let accessToken = null;
 
-  // 同期UI初期値
+  // 同期UIの初期値
   sheetIdInput.value = syncSettings.sheetId || '';
-  sheetProblemsInput.value = syncSettings.sheetProblems || 'Problems';
-  sheetDailyInput.value = syncSettings.sheetDaily || 'Daily';
+  sheetProblemsInput.value = syncSettings.sheetProblems || CONFIG.SHEET_PROBLEMS;
+  sheetDailyInput.value = syncSettings.sheetDaily || CONFIG.SHEET_DAILY;
+
+  // HARD_CODEDがあれば入力UIを隠す（Cタブで実行されるよう renderC側でも呼ぶ）
+  setupSyncUIVisibility();
 
   saveSyncSettingsBtn.addEventListener('click', () => {
+    if (CONFIG.HARD_CODED_SHEET_ID) { alert('シートIDはコードに埋め込まれているため変更できません。'); return; }
     syncSettings.sheetId = sheetIdInput.value.trim();
-    syncSettings.sheetProblems = sheetProblemsInput.value.trim() || 'Problems';
-    syncSettings.sheetDaily = sheetDailyInput.value.trim() || 'Daily';
+    syncSettings.sheetProblems = sheetProblemsInput.value.trim() || CONFIG.SHEET_PROBLEMS;
+    syncSettings.sheetDaily = sheetDailyInput.value.trim() || CONFIG.SHEET_DAILY;
     saveAll();
     updateSyncBadge('設定保存', 'yellow');
   });
@@ -567,7 +599,7 @@
     try {
       await gapiLoad();
       if (!isSignedIn()) { alert('先にGoogleログインしてください。'); return; }
-      if (!syncSettings.sheetId) { alert('Spreadsheet IDを設定してください。'); return; }
+      if (!syncSettings.sheetId) { alert('Spreadsheet IDが未設定です。'); return; }
       updateSyncBadge('同期中…', 'yellow');
       await pullAndMerge(); // Pull→マージ
       await pushOutbox();   // Push
