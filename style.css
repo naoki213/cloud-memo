@@ -176,27 +176,29 @@ p { margin: 0 0 8px; }
   .main { padding: 8px; padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
   .card { padding: 12px; border-radius: 14px; }
 }
-/* ==== マスク表示（常に黒で解除する版） ==== */
-.mask {
-  background: #c62828;                  /* マスク時の赤背景 */
-  color: transparent !important;        /* 文字は透明化 */
-  -webkit-text-fill-color: transparent; /* iOS/Chrome 対応 */
-  text-shadow: none !important;
-  border-radius: .25rem;
-  padding: 0 .2em;
-  cursor: pointer;
+/* ==== マスク時：完全に隠す ==== */
+.mask{
+  background:#c62828;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent; /* iOS/Chrome対策 */
+  text-shadow:none !important;
+  border-radius:.25rem;
+  padding:0 .2em;
+  cursor:pointer;
 }
 
-/* 個別表示（タップで解除 → 黒文字） */
-.mask.peek {
-  background: #ffffff;
-  color: #000000 !important;                 /* 常に黒文字 */
-  -webkit-text-fill-color: #000000 !important;
+/* ==== 個別解除：黒で必ず見える（子要素も含めて強制） ==== */
+.mask.peek,
+.mask.peek *{
+  background:#ffffff;
+  color:#000000 !important;
+  -webkit-text-fill-color:#000000 !important;
 }
 
-/* 全表示（解答確認 → 黒文字） */
-.mask.revealed {
-  background: #ffffff;
-  color: #000000 !important;                 /* 常に黒文字 */
-  -webkit-text-fill-color: #000000 !important;
+/* ==== 全解除：黒で必ず見える（子要素も含めて強制） ==== */
+.mask.revealed,
+.mask.revealed *{
+  background:#ffffff;
+  color:#000000 !important;
+  -webkit-text-fill-color:#000000 !important;
 }
