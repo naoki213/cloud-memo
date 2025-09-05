@@ -1,11 +1,9 @@
 /* =========================
-   消費税法 暗記アプリ + Google Sheets 同期（安全同期付き）
-   前提：
-   - 同時編集なし（1ユーザー多端末）想定
-   - 起動時は Pull→マージ のみ（Pushしない）
-   - 変更は outbox に貯めて、手動同期 or 定期同期で Push
+   消費税法 暗記アプリ + Google Sheets 同期（GIS対応・安全同期）
+   - 同時編集なし想定
+   - 起動（ログイン直後）は Pull→マージのみ（Pushしない）
+   - 変更は outbox に積んで「今すぐ同期」で Push
    - 削除は deleted:true のソフト削除
-   - スプレッドシートは「Problems」「Daily」の2シート（ヘッダ行必須）
    ========================= */
 
 (() => {
@@ -15,30 +13,30 @@
     APPSTATE: 'app_state_v1',
     DAILYSTATS: 'daily_stats_v1',
     DAILYTHRESH: 'daily_thresholds_v1',
-    OUTBOX: 'outbox_v1',                // 変更キュー
-    SYNC: 'sync_settings_v1',           // 設定（sheetId, sheet names）
-    CLOUD_INDEX: 'cloud_index_v1',      // id -> row（前回Pull時の行番号）
+    OUTBOX: 'outbox_v1',
+    SYNC: 'sync_settings_v1',
+    CLOUD_INDEX: 'cloud_index_v1',
   };
 
   // ======= 状態
   let problems = loadJSON(LS_KEYS.PROBLEMS, []);
   let appState = loadJSON(LS_KEYS.APPSTATE, {
     recentQueue: [],
-    forcedQueue: [], // {id, delay}
+    forcedQueue: [],
     lastPastedHTML: "",
   });
-  let dailyStats = loadJSON(LS_KEYS.DAILYSTATS, {});       // { [dateKey]: {correct, total} }
-  let dailyThresholds = loadJSON(LS_KEYS.DAILYTHRESH, {}); // { [dateKey]: {ge3, ge5, ge10} }
-  let outbox = loadJSON(LS_KEYS.OUTBOX, []);               // [{kind:'problem'|'daily', id|date, op:'upsert'|'delete'}]
-  let cloudIndex = loadJSON(LS_KEYS.CLOUD_INDEX, { problems: {}, daily: {} }); // { problems: {id: row}, daily: {date: row} }
+  let dailyStats = loadJSON(LS_KEYS.DAILYSTATS, {});
+  let dailyThresholds = loadJSON(LS_KEYS.DAILYTHRESH, {});
+  let outbox = loadJSON(LS_KEYS.OUTBOX, []);
+  let cloudIndex = loadJSON(LS_KEYS.CLOUD_INDEX, { problems: {}, daily: {} });
   let syncSettings = loadJSON(LS_KEYS.SYNC, {
-    clientId: '727845914673-m07n2rov9979sqls20l321v962jhmp6h.apps.googleusercontent.com', // ←差し替え
+    clientId: '727845914673-m07n2rov9979sqls20l321v962jhmp6h.apps.googleusercontent.com', // ←あなたのOAuthクライアントID
     sheetId: '',
     sheetProblems: 'Problems',
     sheetDaily: 'Daily',
   });
 
-  // ======= DOM 参照（元のUI）
+  // ======= DOM 参照
   const tabButtons = document.querySelectorAll('.tab-btn');
   const pages = document.querySelectorAll('.page');
 
@@ -212,7 +210,6 @@
       score: 0, answerCount: 0, correctCount: 0,
       deleted: false, createdAt: now, updatedAt: now
     });
-    // outbox に upsert を積む
     outbox.push({ kind: 'problem', id, op: 'upsert', updatedAt: now });
     saveAll();
     editor.innerHTML = ''; catInput.value = '';
@@ -311,7 +308,6 @@
     const sanitized = sanitizeHTML(p.html);
     requestAnimationFrame(() => {
       editEditor.innerHTML = sanitized;
-      // キャレット末尾
       const range = document.createRange(); range.selectNodeContents(editEditor); range.collapse(false);
       const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); editEditor.focus();
     });
@@ -433,14 +429,12 @@
     p.score = clamp((p.score ?? 0) + delta, -5, +10);
     p.answerCount = (p.answerCount ?? 0) + 1; if (mark === 'o') p.correctCount = (p.correctCount ?? 0) + 1;
     p.updatedAt = Date.now(); if (mark === 'x') appState.forcedQueue.push({ id: p.id, delay: 5 });
-    // 日次
     const dkey = todayKey(); if (!dailyStats[dkey]) dailyStats[dkey] = { correct: 0, total: 0 };
     dailyStats[dkey].total += 1; if (mark === 'o') dailyStats[dkey].correct += 1;
     const ge3 = problems.filter(x => !x.deleted && (x.score ?? 0) >= 3).length;
     const ge5 = problems.filter(x => !x.deleted && (x.score ?? 0) >= 5).length;
     const ge10 = problems.filter(x => !x.deleted && (x.score ?? 0) >= 10).length;
     dailyThresholds[dkey] = { ge3, ge5, ge10 };
-    // outbox
     outbox.push({ kind:'problem', id:p.id, op:'upsert', updatedAt: p.updatedAt });
     outbox.push({ kind:'daily', date:dkey, op:'upsert', updatedAt: Date.now() });
     saveAll(); renderQuestion(nextQuestionId());
@@ -487,10 +481,15 @@
   }
 
   /* ======================
-     Google Sheets 同期
+     Google Sheets 同期（GIS）
      ====================== */
+  const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+  const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
 
-  // ---- 同期UI初期値
+  let tokenClient = null;
+  let accessToken = null;
+
+  // 同期UI初期値
   sheetIdInput.value = syncSettings.sheetId || '';
   sheetProblemsInput.value = syncSettings.sheetProblems || 'Problems';
   sheetDailyInput.value = syncSettings.sheetDaily || 'Daily';
@@ -503,32 +502,67 @@
     updateSyncBadge('設定保存', 'yellow');
   });
 
-  // ---- gapi 初期化 & ログイン
-  const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-  const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+  function gapiLoad() {
+    return new Promise((resolve, reject) => {
+      if (gapi?.client) return resolve();
+      gapi.load('client', { callback: resolve, onerror: reject });
+    });
+  }
+  function isSignedIn(){ return !!accessToken; }
+  function updateSyncBadge(text, color){
+    syncBadge.textContent = text;
+    syncBadge.className = 'badge ' + ({
+      green: 'badge-green', yellow: 'badge-yellow', red: 'badge-red', gray: 'badge-gray'
+    }[color] || 'badge-gray');
+  }
 
+  // ログイン（GIS）
   loginBtn.addEventListener('click', async () => {
     try {
       await gapiLoad();
-      await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC], clientId: syncSettings.clientId, scope: SCOPES });
-      await gapi.auth2.getAuthInstance().signIn();
-      updateSyncBadge('ログイン済み', 'green');
-      // 起動時Pull（安全）：Pushしない
-      await pullAndMerge();
+      await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
+
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: syncSettings.clientId,
+        scope: SCOPES,
+        callback: (resp) => {
+          if (resp && resp.access_token) {
+            accessToken = resp.access_token;
+            gapi.client.setToken({ access_token: accessToken });
+            updateSyncBadge('ログイン済み', 'green');
+            // 安全Pull（Pushしない）
+            pullAndMerge().catch(console.error);
+          } else {
+            updateSyncBadge('ログイン失敗', 'red');
+            alert('Googleログインに失敗しました。');
+          }
+        },
+      });
+
+      tokenClient.requestAccessToken({ prompt: 'consent' });
     } catch (e) {
-      console.error(e); updateSyncBadge('ログイン失敗', 'red'); alert('Googleログインに失敗しました。');
+      console.error(e);
+      updateSyncBadge('ログイン失敗', 'red');
+      alert('Googleログインに失敗しました。');
     }
   });
 
+  // ログアウト（トークン失効）
   logoutBtn.addEventListener('click', async () => {
     try {
-      await gapiLoad();
-      const auth = gapi.auth2.getAuthInstance();
-      if (auth) await auth.signOut();
-      updateSyncBadge('ログアウト', 'gray');
+      if (accessToken) {
+        google.accounts.oauth2.revoke(accessToken, () => {
+          accessToken = null;
+          gapi.client.setToken(null);
+          updateSyncBadge('ログアウト', 'gray');
+        });
+      } else {
+        updateSyncBadge('ログアウト', 'gray');
+      }
     } catch (e) { console.error(e); }
   });
 
+  // 手動同期
   syncNowBtn.addEventListener('click', async () => {
     try {
       await gapiLoad();
@@ -539,32 +573,24 @@
       await pushOutbox();   // Push
       updateSyncBadge('同期完了', 'green');
     } catch (e) {
-      console.error(e); updateSyncBadge('同期失敗', 'red'); alert('同期に失敗しました。コンソールを確認してください。');
+      console.error(e);
+      updateSyncBadge('同期失敗', 'red');
+      alert('同期に失敗しました。コンソールを確認してください。');
     }
   });
 
-  function updateSyncBadge(text, color){
-    syncBadge.textContent = text;
-    syncBadge.className = 'badge ' + ({
-      green: 'badge-green', yellow: 'badge-yellow', red: 'badge-red', gray: 'badge-gray'
-    }[color] || 'badge-gray');
-  }
-  function gapiLoad(){ return new Promise((res, rej) => { if (gapi?.client) return res(); gapi.load('client:auth2', {callback: res, onerror: rej}); }); }
-  function isSignedIn(){ try { return gapi?.auth2?.getAuthInstance()?.isSignedIn.get(); } catch { return false; } }
-
-  // ---- Pull & Merge（安全：Pushしない）
+  // Pull & Merge（安全：Pushしない）
   async function pullAndMerge(){
     const sheetId = syncSettings.sheetId; if (!sheetId) { updateSyncBadge('未設定', 'gray'); return; }
-    // Problems
     const rangeProblems = `${syncSettings.sheetProblems}!A1:Z`;
     const resP = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: rangeProblems });
     const { rows: cloudProblems, indexMap: cloudPIndex } = parseSheetRows(resP.result.values || []);
-    // Daily
+
     const rangeDaily = `${syncSettings.sheetDaily}!A1:Z`;
     const resD = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: rangeDaily });
     const { rows: cloudDaily, indexMap: cloudDIndex } = parseSheetRows(resD.result.values || []);
 
-    // マージ（LWW：updatedAt新しい方優先）／削除優先
+    // Problems マージ（deleted優先 → updatedAt新しい方）
     const localP = new Map(problems.map(p => [p.id, p]));
     cloudProblems.forEach(row => {
       const id = row.id; if (!id) return;
@@ -572,17 +598,14 @@
       const l = localP.get(id);
       if (!l) localP.set(id, c);
       else {
-        // deleted優先、次にupdatedAt
         if (c.deleted && !l.deleted) localP.set(id, c);
         else if (!c.deleted && l.deleted) { /* keep local deleted */ }
-        else {
-          if (Number(c.updatedAt||0) > Number(l.updatedAt||0)) localP.set(id, c);
-        }
+        else { if (Number(c.updatedAt||0) > Number(l.updatedAt||0)) localP.set(id, c); }
       }
     });
     problems = Array.from(localP.values());
 
-    // Daily（dateキー）
+    // Daily マージ（dateキー）
     const localD = {...dailyStats};
     cloudDaily.forEach(row => {
       const k = row.date; if (!k) return;
@@ -596,19 +619,18 @@
     });
     dailyStats = localD;
 
-    // インデックス（id→row / date→row）を保持（Pushでupdate用）
+    // インデックス保存（更新時の行番号用）
     cloudIndex = { problems: cloudPIndex, daily: cloudDIndex };
 
     saveAll(); renderC(); renderD();
   }
 
-  // ---- Push（outboxを反映）
+  // Push（outboxを反映）
   async function pushOutbox(){
     if (!outbox.length) return;
     const sheetId = syncSettings.sheetId;
     const pSheet = syncSettings.sheetProblems, dSheet = syncSettings.sheetDaily;
 
-    // outbox を古いものから処理
     const toPush = [...outbox].sort((a,b)=>Number(a.updatedAt||0)-Number(b.updatedAt||0));
 
     for (const item of toPush) {
@@ -620,12 +642,11 @@
         await upsertRow(sheetId, dSheet, 'date', cloudIndex.daily, k, denormalizeDaily(k, d));
       }
     }
-    // 成功したので outbox を空にして、Pullして行番号を再取得
     outbox = []; saveAll();
-    await pullAndMerge();
+    await pullAndMerge(); // 行番号の再取得も兼ねる
   }
 
-  // ---- ヘルパ（Sheet <-> Object 変換）
+  // Sheet <-> Object 変換
   function parseSheetRows(values){
     if (!values.length) return { rows: [], indexMap: {} };
     const header = values[0];
@@ -634,9 +655,8 @@
       const row = values[r]; const obj = {};
       header.forEach((key, i) => { obj[key] = row[i]; });
       rows.push(obj);
-      // 主キーを id or date と仮定して行番号を記録（1-based）
       const pk = obj.id || obj.date;
-      if (pk) map[pk] = r + 1;
+      if (pk) map[pk] = r + 1; // 1-based
     }
     return { rows, indexMap: map };
   }
@@ -696,21 +716,19 @@
   }
   function safeParseJSON(s, fallback){ try { return s ? JSON.parse(s) : fallback; } catch { return fallback; } }
 
-  // ---- 行の upsert（存在すれば update、無ければ append）
+  // 行の upsert（存在すれば update、無ければ append）
   async function upsertRow(sheetId, sheetName, pkName, indexMap, key, obj){
     const headers = Object.keys(obj);
     const rowValues = headers.map(h => obj[h] ?? '');
 
     const rowNum = indexMap[key]; // 1-based
     if (rowNum) {
-      // UPDATE
       const range = `${sheetName}!A${rowNum}:${colLetter(headers.length)}${rowNum}`;
       await gapi.client.sheets.spreadsheets.values.update({
         spreadsheetId: sheetId, range, valueInputOption: 'RAW',
         resource: { values: [rowValues] }
       });
     } else {
-      // APPEND（ヘッダ順と列数を合わせるため、シートのヘッダを取得して整列）
       const res = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${sheetName}!A1:Z1` });
       const header = (res.result.values && res.result.values[0]) || headers;
       const ordered = header.map(h => obj[h] ?? '');
@@ -721,7 +739,7 @@
       });
     }
   }
-  function colLetter(n){ // 1->A, 2->B...
+  function colLetter(n){
     let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s;
   }
 
@@ -729,8 +747,6 @@
      初期レンダリング
      ====================== */
   renderC(); setReveal(false);
-
-  // 復帰時、Dタブ再描画
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       if (document.querySelector('#tab-d').classList.contains('show')) renderProgressChart();
