@@ -428,6 +428,12 @@
     const selected=Array.from(catModalBody.querySelectorAll('input[type=checkbox]:checked')).map(c=>c.value);
     if (catModal){ catModal.classList.add('hidden'); catModal.setAttribute('aria-hidden','true'); }
     if (!selected.length){ alert('カテゴリを1つ以上選択してください。'); return; }
+      // ✅ 次の問題ロードなどでカテゴリ再利用されるように
+  if (appState.lastSavedCats?.length && catsInput){
+    catsInput.value = appState.lastSavedCats.join(', ');
+  }
+
+  
     startSession(selected);
   });
 
