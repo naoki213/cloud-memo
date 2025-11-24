@@ -746,3 +746,34 @@
   document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible'){ /* 必要なら再描画 */ } });
 
 })();
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  const iphoneBtn = document.getElementById("iphoneLoadBtn");
+
+  // iPhoneならボタンを表示
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    iphoneBtn.style.display = "block";
+  }
+
+  // iPhone軽量モードの動作
+  iphoneBtn.addEventListener("click", async () => {
+    alert("iPhone軽量モードで 2.5MB の問題を取得します");
+
+    // ① スプレッドシートから問題一覧（軽量）取得
+    const all = await fetchLightProblemList();  // ←あなたの関数名に合わせる
+
+    // ② 2.5MB分だけランダムに抽出
+    const selected = pick2_5MB(all);
+
+    // ③ 抽出された問題だけ詳細取得
+    const full = await fetchFullProblems(selected.map(p => p.id));
+
+    // ④ localStorageに保存
+    localStorage.setItem("problemData", JSON.stringify(full));
+
+    alert("iPhoneモード：2.5MBの問題を読み込みました");
+  });
+
+});
+
