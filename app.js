@@ -801,17 +801,3 @@ async function loadLightweightProblems() {
     return convertSheetRowsToProblems(list);
 }
 
-function convertSheetRowsToProblems(rows) {
-    return rows.map(r => ({
-        id: r[0],
-        html: r[1],
-        answers: JSON.parse(r[2] || "[]"),
-        categories: (r[3] || "").split(",").map(s => s.trim()).filter(Boolean),
-        score: Number(r[4] || 0),
-        answerCount: Number(r[5] || 0),
-        correctCount: Number(r[6] || 0),
-        deleted: r[7] === "true",
-        createdAt: r[8],
-        updatedAt: r[9]
-    }));
-}
