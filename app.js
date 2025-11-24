@@ -747,3 +747,71 @@
 
 })();
 
+document.getElementById("iphoneLoadBtn").addEventListener("click", async () => {
+    try {
+        await ensureGoogleLogin();   // 既存のログインロジックを流用
+
+        const problems = await loadLightweightProblems();
+        saveProblems(problems);
+
+        alert("iPhone軽量モードで問題を読み込みました（ランダム抽出＋2.5MB制限）");
+
+        refreshProblemList(); // Cタブ更新
+    } catch (e) {
+        console.error(e);
+        alert("軽量モードの読み込みに失敗しました。");
+    }
+});
+
+async function loadLightweightProblems() {
+    const sync = loadSyncSettings();
+    const sheetId = sync.sheetId;
+    const sheetName = sync.sheetProblems;
+
+    // 全行取得
+    const res = await gapi.client.sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `${sheetName}!A2:J`,
+    });
+
+    const rows = res.result.values || [];
+    console.log("取得行数:", rows.length);
+
+    // ---------- ランダム化 ----------
+    const shuffled = [...rows].sort(() => Math.random() - 0.5);
+
+    // ---------- 2.5MB 以下に制限 ----------
+    let list = [];
+    let total = 0;
+    const limit = 2.5 * 1024 * 1024;
+
+    for (const row of shuffled) {
+        const json = JSON.stringify(row);
+        const bytes = new Blob([json]).size;
+
+        if (total + bytes > limit) break;
+
+        total += bytes;
+        list.push(row);
+    }
+
+    console.log("使用行数:", list.length, "総サイズ:", total);
+
+    // 既存の「シート → problem変換」関数を利用
+    return convertSheetRowsToProblems(list);
+}
+
+function convertSheetRowsToProblems(rows) {
+    return rows.map(r => ({
+        id: r[0],
+        html: r[1],
+        answers: JSON.parse(r[2] || "[]"),
+        categories: (r[3] || "").split(",").map(s => s.trim()).filter(Boolean),
+        score: Number(r[4] || 0),
+        answerCount: Number(r[5] || 0),
+        correctCount: Number(r[6] || 0),
+        deleted: r[7] === "true",
+        createdAt: r[8],
+        updatedAt: r[9]
+    }));
+}
