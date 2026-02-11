@@ -9,14 +9,9 @@
 
   <!-- Chart.js（Dタブのグラフ用） -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-
-  <!-- Google Identity Services（新しい認証） -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <!-- Google API client（Sheets 用） -->
-  <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
-  <!-- ===== 上部固定タブ（同期UIは削除） ===== -->
+  <!-- ===== 上部固定タブ ===== -->
   <header class="topbar">
     <nav class="tabs">
       <button class="tab-btn active" data-target="#tab-a">A 問題演習</button>
@@ -33,8 +28,11 @@
         <h2>出題</h2>
         <div class="controls">
           <button id="startAllBtn" class="btn primary">すべてから出題</button>
-          <button id="startByCatBtn" class="btn">カテゴリから出題</button>
+          <button id="startByCatBtn" class="btn">カテゴリを意識して出題</button>
         </div>
+        <p class="muted" style="margin-top:8px;">
+          「カテゴリを意識して出題」では、カテゴリ・問題形式・スコア条件を指定できます。
+        </p>
       </div>
 
       <div class="card">
@@ -45,7 +43,7 @@
         </div>
       </div>
 
-      <!-- 下部固定バー（Aタブ専用） -->
+      <!-- 下部固定バー（マスク・文章問題用） -->
       <div class="bottombar" id="answerBar">
         <button id="revealBtn" class="btn primary">解答確認</button>
         <div id="judgeBtns" class="judge hidden">
@@ -60,65 +58,110 @@
     <section id="tab-b" class="page">
       <div class="card">
         <h2>問題作成</h2>
-        <div class="editor-controls">
-          <button id="maskBtn" class="btn">選択→マスク</button>
-          <button id="unmaskAllBtn" class="btn">マスク全解除</button>
-          <button id="repeatBtn" class="btn">繰り返し（直前ペースト）</button>
-          <button id="clearDraftBtn" class="btn">消去</button>
+
+        <!-- 形式切り替えボタン（横並び） -->
+        <div class="row wrap">
+          <span class="muted">問題形式：</span>
+          <button class="btn small btype-btn primary" data-btype="mask">マスク問題</button>
+          <button class="btn small btype-btn" data-btype="qa">文章問題</button>
+          <button class="btn small btype-btn" data-btype="ox">○×問題</button>
         </div>
 
-        <div id="editor" class="editor" contenteditable="true" spellcheck="false"
-             placeholder="ここに長文をペーストし、問題にしたい箇所を選択→「選択→マスク」を押してください。複数箇所OK。"></div>
+        <!-- ① マスク問題（従来方式） -->
+        <div id="bPaneMask" class="b-pane">
+          <div class="editor-controls">
+            <button id="maskBtn" class="btn">選択→マスク</button>
+            <button id="unmaskAllBtn" class="btn">マスク全解除</button>
+            <button id="repeatBtn" class="btn">繰り返し（直前ペースト）</button>
+            <button id="clearDraftBtn" class="btn">消去</button>
+          </div>
 
-        <div class="row">
-          <label for="catInput">カテゴリ（カンマ区切りで複数可）：</label>
-          <input id="catInput" type="text" class="input" placeholder="例：消費税法, 理論/総論, 軽減税率" />
+          <div id="editor" class="editor" contenteditable="true" spellcheck="false"
+               placeholder="ここに長文をペーストし、問題にしたい箇所を選択→「選択→マスク」を押してください。複数箇所OK。"></div>
+
+          <div class="row">
+            <label for="catInput">カテゴリ（カンマ区切りで複数可）：</label>
+            <input id="catInput" type="text" class="input" placeholder="例：消費税法, 理論/総論, 軽減税率" />
+          </div>
+
+          <div class="row right">
+            <button id="saveMaskProblemBtn" class="btn primary">保存（Cに追加）</button>
+          </div>
         </div>
 
-        <div class="row right">
-          <button id="saveProblemBtn" class="btn primary">保存（Cに追加 & 同期キュー）</button>
+        <!-- ② 文章問題 -->
+        <div id="bPaneQa" class="b-pane hidden">
+          <div class="row">
+            <label for="qaQuestionInput">問題：</label>
+          </div>
+          <textarea id="qaQuestionInput" class="editor" rows="3"
+                    placeholder="例：日本の首都はどこですか？"></textarea>
+
+          <div class="row" style="margin-top:8px;">
+            <label for="qaAnswerInput">解答：</label>
+          </div>
+          <textarea id="qaAnswerInput" class="editor" rows="2"
+                    placeholder="例：東京"></textarea>
+
+          <div class="row" style="margin-top:8px;">
+            <label for="qaCatInput">カテゴリ（カンマ区切りで複数可）：</label>
+            <input id="qaCatInput" type="text" class="input" placeholder="例：消費税法, 理論" />
+          </div>
+
+          <div class="row right">
+            <button id="saveQaProblemBtn" class="btn primary">保存（Cに追加）</button>
+          </div>
+        </div>
+
+        <!-- ③ ○×問題 -->
+        <div id="bPaneOx" class="b-pane hidden">
+          <div class="row">
+            <label for="oxQuestionInput">問題：</label>
+          </div>
+          <textarea id="oxQuestionInput" class="editor" rows="3"
+                    placeholder="例：日本の首都は東京か？"></textarea>
+
+          <div class="row" style="margin-top:8px;">
+            <label for="oxCorrectInput">正答：</label>
+            <select id="oxCorrectInput" class="input" style="max-width:140px;">
+              <option value="o">〇（正しい）</option>
+              <option value="x">×（誤り）</option>
+            </select>
+          </div>
+
+          <div class="row" style="margin-top:8px;">
+            <label for="oxExplanationInput">解説：</label>
+          </div>
+          <textarea id="oxExplanationInput" class="editor" rows="3"
+                    placeholder="解説や補足を入力してください。"></textarea>
+
+          <div class="row" style="margin-top:8px;">
+            <label for="oxCatInput">カテゴリ（カンマ区切りで複数可）：</label>
+            <input id="oxCatInput" type="text" class="input" placeholder="例：消費税法, 理論" />
+          </div>
+
+          <div class="row right">
+            <button id="saveOxProblemBtn" class="btn primary">保存（Cに追加）</button>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ====== C: 編集・確認（＋同期UIをここに集約） ====== -->
+    <!-- ====== C: 編集・確認 ====== -->
     <section id="tab-c" class="page">
       <div class="card">
-        <h2>Google 同期</h2>
-        <div class="row wrap" style="align-items:center">
-          <span id="syncBadge" class="badge badge-gray">未初期化</span>
-          <button id="loginBtn" class="btn small">Googleログイン</button>
-          <button id="logoutBtn" class="btn small outline">ログアウト</button>
-          <button id="syncNowBtn" class="btn small primary">今すぐ同期</button>
-          <button id="iphoneLoadBtn" class="btn-iphone">iPhone軽量モード</button>
-
-        </div>
-        <details class="sync-settings" id="syncSettingsDetails">
-          <summary>同期設定</summary>
-          <div class="sync-panel">
-            <label>Spreadsheet ID
-              <input id="sheetIdInput" class="input" placeholder="1AbCdEf...（URLのID）" />
-            </label>
-            <div class="row gap">
-              <label>Problems シート名 <input id="sheetProblemsInput" class="input" value="Problems" /></label>
-              <label>Daily シート名 <input id="sheetDailyInput" class="input" value="Daily" /></label>
-            </div>
-            <button id="saveSyncSettingsBtn" class="btn">保存</button>
-            <div class="muted">※ シートの1行目にヘッダが必要です（下の「シート準備」参照）。</div>
-          </div>
-        </details>
-        <details class="sync-settings">
-          <summary>シート準備（初回のみ）</summary>
-          <div class="sync-panel">
-            <p>各シートの1行目に以下のヘッダを作成してください。</p>
-            <p><b>Problems</b>：id, html, answers, categories, score, answerCount, correctCount, deleted, createdAt, updatedAt</p>
-            <p><b>Daily</b>：date, correct, total, ge3, ge5, ge10, updatedAt</p>
-          </div>
-        </details>
-      </div>
-
-      <div class="card">
         <h2>編集・確認</h2>
+
+        <!-- 形式フィルタ -->
+        <div class="row wrap">
+          <span class="muted">形式：</span>
+          <button class="btn small ctype-btn primary" data-ctype="all">すべて</button>
+          <button class="btn small ctype-btn" data-ctype="mask">マスク</button>
+          <button class="btn small ctype-btn" data-ctype="qa">文章</button>
+          <button class="btn small ctype-btn" data-ctype="ox">○×</button>
+        </div>
+
+        <!-- カテゴリフィルタ -->
         <div class="row wrap">
           <div class="chips" id="catChips"></div>
           <button id="clearCatFilterBtn" class="btn">カテゴリ絞り込み解除</button>
@@ -130,7 +173,13 @@
             インポート（JSON）
             <input id="importJsonInput" type="file" accept="application/json" hidden />
           </label>
+          <button id="purgeDeletedBtn" class="btn danger">
+  　　　　　🧹 削除済み問題を完全削除
+　　　　　　</button>
+
         </div>
+
+        <div id="storageInfo" class="muted"></div>
 
         <div id="problemList" class="problem-list"></div>
       </div>
@@ -139,8 +188,17 @@
     <!-- ====== D: 記録 ====== -->
     <section id="tab-d" class="page">
       <div class="card">
-        <h2>進捗グラフ（スコア到達数）</h2>
-        <div style="height:220px"><canvas id="progressChart"></canvas></div>
+        <h2>カテゴリ別スコア達成数</h2>
+
+        <!-- スコアthreshold切り替え -->
+        <div class="row wrap">
+          <span class="muted">スコア基準：</span>
+          <button class="btn small score-filter-btn primary" data-threshold="3">+3以上</button>
+          <button class="btn small score-filter-btn" data-threshold="5">+5以上</button>
+          <button class="btn small score-filter-btn" data-threshold="7">+7以上</button>
+        </div>
+
+        <div style="height:260px"><canvas id="progressChart"></canvas></div>
       </div>
 
       <div class="card">
@@ -150,14 +208,53 @@
     </section>
   </main>
 
-  <!-- ===== カテゴリ選択モーダル（Aタブ用） ===== -->
+  <!-- ===== 出題条件モーダル（カテゴリ＋形式＋スコア） ===== -->
   <div id="catModal" class="modal hidden" aria-hidden="true">
     <div class="modal-content">
-      <h3>カテゴリを選択</h3>
-      <div id="catModalBody" class="modal-body"></div>
+      <h3>出題条件を選択</h3>
+
+      <div class="modal-section">
+        <h4>カテゴリ</h4>
+        <p class="muted">※未選択の場合は全カテゴリから出題します。</p>
+        <div id="catModalBody" class="modal-body"></div>
+      </div>
+
+      <div class="modal-section">
+        <h4>問題形式</h4>
+        <div id="modalTypeChips" class="chips">
+          <label class="chip">
+            <input type="checkbox" value="mask" checked />マスク
+          </label>
+          <label class="chip">
+            <input type="checkbox" value="qa" checked />文章
+          </label>
+          <label class="chip">
+            <input type="checkbox" value="ox" checked />○×
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h4>スコア条件</h4>
+        <div id="modalScoreChips" class="chips">
+          <label class="chip">
+            <input type="radio" name="scoreFilter" value="" checked />制限なし
+          </label>
+          <label class="chip">
+            <input type="radio" name="scoreFilter" value="3" />+3 以下
+          </label>
+          <label class="chip">
+            <input type="radio" name="scoreFilter" value="5" />+5 以下
+          </label>
+          <label class="chip">
+            <input type="radio" name="scoreFilter" value="7" />+7 以下
+          </label>
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button id="catModalCancel" class="btn">キャンセル</button>
-        <button id="catModalStart" class="btn primary">このカテゴリで出題</button>
+        <button id="catModalStart" class="btn primary">この条件で出題</button>
       </div>
     </div>
     <div class="modal-backdrop"></div>
@@ -167,15 +264,61 @@
   <div id="editModal" class="modal hidden" aria-hidden="true">
     <div class="modal-content large">
       <h3>問題編集</h3>
+
+      <div class="row">
+        <span class="muted">形式：</span>
+        <span id="editTypeLabel" class="badge badge-gray"></span>
+      </div>
+
       <div class="row">
         <label>カテゴリ（カンマ区切り）：</label>
         <input id="editCatInput" type="text" class="input" />
       </div>
-      <div class="editor-controls">
-        <button id="editMaskBtn" class="btn">選択→マスク</button>
-        <button id="editUnmaskAllBtn" class="btn">マスク全解除</button>
+
+      <!-- マスク問題用エリア -->
+      <div id="editMaskArea">
+        <div class="editor-controls">
+          <button id="editMaskBtn" class="btn">選択→マスク</button>
+          <button id="editUnmaskAllBtn" class="btn">マスク全解除</button>
+           <button id="editUnmaskModeBtn" class="btn">解除モード</button>
+        </div>
+        <div id="editEditor" class="editor" contenteditable="true" spellcheck="false"></div>
       </div>
-      <div id="editEditor" class="editor" contenteditable="true" spellcheck="false"></div>
+
+      <!-- 文章問題用エリア -->
+      <div id="editQaArea" class="hidden">
+        <div class="row">
+          <label for="editQaQuestion">問題：</label>
+        </div>
+        <textarea id="editQaQuestion" class="editor" rows="3"></textarea>
+
+        <div class="row" style="margin-top:8px;">
+          <label for="editQaAnswer">解答：</label>
+        </div>
+        <textarea id="editQaAnswer" class="editor" rows="2"></textarea>
+      </div>
+
+      <!-- ○×問題用エリア -->
+      <div id="editOxArea" class="hidden">
+        <div class="row">
+          <label for="editOxQuestion">問題：</label>
+        </div>
+        <textarea id="editOxQuestion" class="editor" rows="3"></textarea>
+
+        <div class="row" style="margin-top:8px;">
+          <label for="editOxCorrect">正答：</label>
+          <select id="editOxCorrect" class="input" style="max-width:140px;">
+            <option value="o">〇（正しい）</option>
+            <option value="x">×（誤り）</option>
+          </select>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+          <label for="editOxExplanation">解説：</label>
+        </div>
+        <textarea id="editOxExplanation" class="editor" rows="3"></textarea>
+      </div>
+
       <div class="row space">
         <div class="muted" id="editMeta"></div>
         <div class="modal-actions">
