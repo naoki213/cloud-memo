@@ -45,22 +45,6 @@ p { margin: 0 0 8px; }
 }
 .tab-btn.active { color: #0b1324; border-bottom: 2px solid var(--accent); }
 
-/* ===== 同期バー ===== */
-.syncbar {
-  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-  padding: 8px 12px; background: transparent;
-}
-.badge {
-  display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 700;
-}
-.badge-gray { background:#e5e7eb; color:#111827; }
-.badge-green { background:#dcfce7; color:#065f46; }
-.badge-yellow { background:#fef9c3; color:#713f12; }
-.badge-red { background:#fee2e2; color:#7f1d1d; }
-
-.sync-settings summary { cursor:pointer; }
-.sync-panel { display:grid; gap:10px; padding:10px; background:#fff; border:1px solid rgba(0,0,0,0.08); border-radius:12px; }
-
 /* ===== 共通 ===== */
 .main { padding: 12px; padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
 .page { display: none; }
@@ -87,7 +71,7 @@ p { margin: 0 0 8px; }
   border: 1px solid rgba(0,0,0,0.06);
   padding: 10px 14px; border-radius: 12px; font-weight: 700; cursor: pointer;
 }
-.btn.small { padding:6px 10px; font-weight:600; border-radius:10px; }
+.btn.small { padding:6px 10px; font-weight:600; border-radius:10px; font-size: 12px; }
 .btn.primary { background: var(--accent); color: #001015; border-color: transparent; }
 .btn.good { background: #dcfce7; color: #065f46; }
 .btn.bad { background: #fee2e2; color: #7f1d1d; }
@@ -99,25 +83,65 @@ p { margin: 0 0 8px; }
   border: 1px solid rgba(0,0,0,0.12); background: #fff; color: var(--text);
 }
 
-/* エディタ */
+/* エディタ（contenteditable / textarea 共通） */
 .editor {
-  min-height: 180px; padding: 12px; border-radius: 12px;
+  width: 100%;
+  min-height: 120px; padding: 12px; border-radius: 12px;
   border: 1px dashed rgba(0,0,0,0.18);
   background: #fff; line-height: 1.7; white-space: pre-wrap;
+  resize: vertical;
 }
-.editor[placeholder]:empty:before { content: attr(placeholder); color: var(--muted); }
+.editor[placeholder]:empty:before {
+  content: attr(placeholder);
+  color: var(--muted);
+}
+
+/* ===== Bタブ：形式別のパネル ===== */
+.b-pane { margin-top: 8px; }
+.b-pane.hidden { display: none; }
 
 /* ===== マスク ===== */
-.mask { background: #d90429; border-radius: 4px; padding: 0 2px; }
-.mask, .mask * { color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important; }
-.mask.revealed { background: #fff3cd; outline: 1px solid rgba(0,0,0,0.05); }
-.mask.revealed, .mask.revealed * { color: #111 !important; -webkit-text-fill-color: #111 !important; }
+.mask{
+  background:#c62828;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow:none !important;
+  border-radius:.25rem;
+  padding:0 .2em;
+  cursor:pointer;
+}
+.mask *{
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow:none !important;
+}
+
+/* 個別解除：クリックで一時表示 */
+.mask.peek,
+.mask.peek *{
+  background:#ffffff;
+  color:#000000 !important;
+  -webkit-text-fill-color:#000000 !important;
+}
+
+/* 全解除：解答確認後の表示 */
+.mask.revealed,
+.mask.revealed *{
+  background:#ffffff;
+  color:#000000 !important;
+  -webkit-text-fill-color:#000000 !important;
+}
 
 /* 編集モーダルではマスク可視化 */
-#editEditor.editing .mask, #editEditor.editing .mask * {
-  color: var(--text) !important; -webkit-text-fill-color: var(--text) !important;
+#editEditor.editing .mask,
+#editEditor.editing .mask * {
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
 }
-#editEditor.editing .mask { background:#ffe4e6; outline:1px dashed rgba(0,0,0,0.15); }
+#editEditor.editing .mask {
+  background:#ffe4e6;
+  outline:1px dashed rgba(0,0,0,0.15);
+}
 #editEditor { user-select:text; -webkit-user-select:text; pointer-events:auto; caret-color:auto; }
 
 /* ===== A：問題表示 ===== */
@@ -129,6 +153,23 @@ p { margin: 0 0 8px; }
   background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 12px;
 }
 .placeholder { color: var(--muted); }
+
+/* 文章問題表示 */
+.qa-question { line-height: 1.8; }
+.qa-answer {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+/* ○×問題表示 */
+.ox-question { line-height: 1.8; margin-bottom: 8px; }
+.ox-buttons { margin-top: 4px; }
+.ox-explanation {
+  margin-top: 8px;
+  line-height: 1.6;
+}
 
 /* ===== 下部固定バー（A） ===== */
 .bottombar {
@@ -152,11 +193,19 @@ p { margin: 0 0 8px; }
 .chip { padding:6px 10px; border-radius:999px; background:#f4f4f5; font-size:12px; border:1px solid rgba(0,0,0,0.10); }
 .chip input { margin-right:6px; }
 
-/* ===== モーダル（重なり順修正） ===== */
+.badge {
+  display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 700;
+}
+.badge-gray { background:#e5e7eb; color:#111827; }
+
+/* ===== モーダル ===== */
 .modal { position: fixed; inset: 0; display: none; z-index: 1000; }
 .modal.hidden { display: none; }
 .modal:not(.hidden) { display: block; }
-.modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 1; cursor: pointer; }
+.modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.35); z-index: 1; cursor: pointer;
+}
 .modal-content {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(680px, 92vw); max-height: 90vh; overflow: auto;
@@ -165,6 +214,9 @@ p { margin: 0 0 8px; }
 }
 .modal-content.large { width: min(920px, 96vw); }
 .modal-body { display: grid; gap: 8px; max-height: 60vh; overflow: auto; }
+
+.modal-section { margin: 8px 0 12px; }
+.modal-section h4 { margin: 0 0 4px; font-size: 14px; }
 
 /* ===== D：日別リスト ===== */
 .daily-list { display: grid; gap: 6px; }
@@ -175,30 +227,4 @@ p { margin: 0 0 8px; }
 @media (max-width: 420px) {
   .main { padding: 8px; padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
   .card { padding: 12px; border-radius: 14px; }
-}
-/* ==== マスク時：完全に隠す ==== */
-.mask{
-  background:#c62828;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent; /* iOS/Chrome対策 */
-  text-shadow:none !important;
-  border-radius:.25rem;
-  padding:0 .2em;
-  cursor:pointer;
-}
-
-/* ==== 個別解除：黒で必ず見える（子要素も含めて強制） ==== */
-.mask.peek,
-.mask.peek *{
-  background:#ffffff;
-  color:#000000 !important;
-  -webkit-text-fill-color:#000000 !important;
-}
-
-/* ==== 全解除：黒で必ず見える（子要素も含めて強制） ==== */
-.mask.revealed,
-.mask.revealed *{
-  background:#ffffff;
-  color:#000000 !important;
-  -webkit-text-fill-color:#000000 !important;
 }
