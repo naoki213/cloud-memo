@@ -669,6 +669,7 @@ function purgeDeletedProblems() {
 
   let currentCatFilter = [];
   let currentTypeFilter = 'all';
+  let currentCatFilter = "";
   const MAX_LIST_ITEMS = 200; // 一覧に表示する最大件数（負荷軽減）
 
   function updateStorageInfo() {
@@ -1510,6 +1511,36 @@ if (editUnmaskModeBtn) {
     }
   }
 
+　// 🔍 検索機能
+const searchInput = document.getElementById("searchInput");
+if (searchInput) {
+  searchInput.addEventListener("input", () => {
+    searchKeyword = searchInput.value.trim().toLowerCase();
+    renderProblemList(); // 一覧を再描画
+  });
+}
+
+  // 🔍 キーワード検索
+if (searchKeyword) {
+  list = list.filter(p => {
+    let targetText = "";
+
+    if (p.type === "mask") {
+      targetText = p.html || "";
+    } 
+    else if (p.type === "qa") {
+      targetText = (p.question || "") + " " + (p.answer || "");
+    } 
+    else if (p.type === "ox") {
+      targetText = (p.question || "") + " " + (p.explanation || "");
+    }
+
+    return targetText.toLowerCase().includes(searchKeyword);
+  });
+}
+
+
+  
   /* ===== D：記録 ===== */
   let progressChart = null;
   let currentScoreThreshold = 3; // +3以上がデフォルト
@@ -1740,3 +1771,5 @@ function formatBytes(bytes) {
 
 // 一般的な localStorage 容量の目安（5MB）
 const LOCALSTORAGE_LIMIT = 5 * 1024 * 1024;
+
+
