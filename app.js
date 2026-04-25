@@ -144,6 +144,9 @@ function convertRedSpanToMask(html) {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
+  const nl2br = (str) =>
+  escapeHTML(str || '').replace(/\n/g, '<br>');
+  
   const sanitizeHTML = (html) => {
     const d = document.createElement('div');
     d.innerHTML = html;
@@ -1357,8 +1360,8 @@ if (editUnmaskModeBtn) {
       questionContainer.innerHTML = `
         <div class="qa-question">${escapeHTML(p.question || '')}</div>
         <div class="qa-answer" style="display:none;">
-          <span class="muted">解答：</span>${escapeHTML(p.answer || '')}
-        </div>
+  <span class="muted">解答：</span><br>${nl2br(p.answer || '')}
+</div>
       `;
     } else if (type === 'ox') {
       questionContainer.innerHTML = `
